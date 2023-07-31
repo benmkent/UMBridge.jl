@@ -1,9 +1,8 @@
 # UM-Bridge
 
-[![Build Status](https://github.com/annereinarz/UM-Bridge.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/annereinarz/UM-Bridge.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://github.com/UM-Bridge/UMBridge.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/UM-Bridge/UMBridge.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
-
-UM-Bridge (the UQ and Model Bridge) provides a unified interface for numerical models that is accessible from virtually any programming language or framework. It is primarily intended for coupling advanced models (e.g. simulations of complex physical processes) to advanced statistical or optimization methods.
+This is a julia UM-Bridge client. UM-Bridge (the UQ and Model Bridge) provides a unified interface for numerical models that is accessible from virtually any programming language or framework. It is primarily intended for coupling advanced models (e.g. simulations of complex physical processes) to advanced statistical or optimization methods.
 
 In many statistical / uncertainty quantification or optimization methods, the model only appears as a function mapping vectors onto vectors with some of the following:
 * Simple evaluation,
@@ -18,7 +17,5 @@ The key idea of UM-Bridge is to now provide this mathematical "interface" as an 
 * Portable, fully reproducible and black-box benchmark problems defined software.
 
 The project documentation including a model and benchmark library can be found here: [Documentation](https://um-bridge-benchmarks.readthedocs.io/en/docs/).
-
-Instructions for contacting the team, bug reports and  contributions can be found in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 
