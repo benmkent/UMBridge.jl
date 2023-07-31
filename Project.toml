@@ -1,0 +1,13 @@
+name = "UM-Bridge"
+uuid = "0ac74fe0-b753-4e62-be71-04a8383fbbef"
+authors = ["UM-Bridge Team"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
