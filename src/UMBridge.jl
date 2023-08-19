@@ -5,6 +5,14 @@ import JSON
 
 # Make HTTP request following UM-Bridge protocol
 
+struct HTTPModel
+   name::String
+   url::String
+end
+
+name(model::HTTPModel) = model.name
+url(model::HTTPModel) = model.url
+
 function check_response(response, expected_code)
     if response.status != expected_code
         error("Request failed with status code " * string(response.status) * " instead of " * string(expected_code))
@@ -17,14 +25,14 @@ function check_parsed_response(parsed)
     end
 end
 
-function evaluate(url, name, input, config)
+function evaluate(model::HTTPModel, input, config)
     body = Dict(
-        "name" => name,
+        "name" =>name(model),
         "input" => input,
         "config" => config
     )
 
-    response = HTTP.request("POST", url * "/Evaluate", body=JSON.json(body))
+    response = HTTP.request("POST", url(model) * "/Evaluate", body=JSON.json(body))
     check_response(response, 200)
     parsed = JSON.parse(String(response.body))
     check_parsed_response(parsed)
@@ -32,9 +40,9 @@ function evaluate(url, name, input, config)
     return parsed["output"]
 end
 
-function gradient(url, name, out_wrt, in_wrt, parameters, sens, config = Dict())
+function gradient(model::HTTPModel, out_wrt, in_wrt, parameters, sens, config = Dict())
     body = Dict(
-        "name" => name,
+        "name" =>name(model),
         "outWrt" => out_wrt,
         "inWrt" => in_wrt,
         "parameters" => parameters,
@@ -42,16 +50,16 @@ function gradient(url, name, out_wrt, in_wrt, parameters, sens, config = Dict())
         "config" => config
     )
 
-    response = HTTP.request("POST", url * "/Gradient", body=JSON.json(body))
+    response = HTTP.request("POST", url(model) * "/Gradient", body=JSON.json(body))
     check_response(response, 200)
     parsed = JSON.parse(String(response.body))
     check_parsed_response(parsed)
     return parsed["output"]
 end
 
-function apply_jacobian(url, name, out_wrt, in_wrt, parameters, vec, config = Dict())
+function apply_jacobian(model::HTTPModel, out_wrt, in_wrt, parameters, vec, config = Dict())
     body = Dict(
-        "name" => name,
+        "name" =>name(model),
         "outWrt" => out_wrt,
         "inWrt" => in_wrt,
         "parameters" => parameters,
@@ -59,16 +67,16 @@ function apply_jacobian(url, name, out_wrt, in_wrt, parameters, vec, config = Di
         "config" => config
     )
 
-    response = HTTP.request("POST", url * "/ApplyJacobian", body=JSON.json(body))
+    response = HTTP.request("POST", url(model) * "/ApplyJacobian", body=JSON.json(body))
     check_response(response, 200)
     parsed = JSON.parse(String(response.body))
     check_parsed_response(parsed)
     return parsed["output"]
 end
 
-function apply_hessian(url, name, out_wrt, in_wrt1, in_wrt2, parameters, vec, sens, config = Dict())
+function apply_hessian(model::HTTPModel, out_wrt, in_wrt1, in_wrt2, parameters, vec, sens, config = Dict())
     body = Dict(
-        "name" => name,
+        "name" =>name(model),
         "outWrt" => out_wrt,
         "inWrt1" => in_wrt1,
         "inWrt2" => in_wrt2,
@@ -78,91 +86,91 @@ function apply_hessian(url, name, out_wrt, in_wrt1, in_wrt2, parameters, vec, se
         "config" => config
     )
 
-    response = HTTP.request("POST", url * "/ApplyHessian", body=JSON.json(body))
+    response = HTTP.request("POST", url(model) * "/ApplyHessian", body=JSON.json(body))
     check_response(response, 200)
     parsed = JSON.parse(String(response.body))
     check_parsed_response(parsed)
     return parsed["output"]
 end
 
-function protocol_version_supported(url)
-    response = HTTP.request("GET", url * "/Info")
+function protocol_version_supported(model::HTTPModel)
+    response = HTTP.request("GET", url(model) * "/Info")
     check_response(response, 200)
     parsed = JSON.parse(String(response.body))
     check_parsed_response(parsed)
     return parsed["protocolVersion"] == 1.0
 end
 
-function get_models(url)
-    response = HTTP.request("GET", url * "/Info")
+function get_models(model::HTTPModel)
+    response = HTTP.request("GET", url(model) * "/Info")
     check_response(response, 200)
     parsed = JSON.parse(String(response.body))
     check_parsed_response(parsed)
     return parsed["models"]
 end
 
-function model_input_sizes(url, name, config = Dict())
+function model_input_sizes(model::HTTPModel, config = Dict())
     body = Dict(
-        "name" => name,
+        "name" =>name(model),
         "config" => config
     )
-    response = HTTP.request("POST", url * "/InputSizes", body=JSON.json(body))
+    response = HTTP.request("POST", url(model) * "/InputSizes", body=JSON.json(body))
     check_response(response, 200)
     parsed = JSON.parse(String(response.body))
     check_parsed_response(parsed)
     return parsed["inputSizes"]
 end
 
-function model_output_sizes(url, name, config = Dict())
+function model_output_sizes(model::HTTPModel, config = Dict())
     body = Dict(
-        "name" => name,
+        "name" =>name(model),
         "config" => config
     )
-    response = HTTP.request("POST", url * "/OutputSizes", body=JSON.json(body))
+    response = HTTP.request("POST", url(model) * "/OutputSizes", body=JSON.json(body))
     check_response(response, 200)
     parsed = JSON.parse(String(response.body))
     check_parsed_response(parsed)
     return parsed["outputSizes"]
 end
 
-function supports_evaluate(url, name)
+function supports_evaluate(model::HTTPModel)
     body = Dict(
-        "name" => name
+        "name" =>name(model)
     )
-    response = HTTP.request("POST", url * "/ModelInfo", body=JSON.json(body))
+    response = HTTP.request("POST", url(model) * "/ModelInfo", body=JSON.json(body))
     check_response(response, 200)
     parsed = JSON.parse(String(response.body))
     check_parsed_response(parsed)
     return parsed["support"]["Evaluate"]
 end
 
-function supports_gradient(url, name)
+function supports_gradient(model::HTTPModel)
     body = Dict(
-        "name" => name
+        "name" =>name(model)
     )
-    response = HTTP.request("POST", url * "/ModelInfo", body=JSON.json(body))
+    response = HTTP.request("POST", url(model) * "/ModelInfo", body=JSON.json(body))
     check_response(response, 200)
     parsed = JSON.parse(String(response.body))
     check_parsed_response(parsed)
     return parsed["support"]["Gradient"]
 end
 
-function supports_apply_jacobian(url, name)
+function supports_apply_jacobian(model::HTTPModel)
     body = Dict(
-        "name" => name
+        "name" =>name(model)
     )
-    response = HTTP.request("POST", url * "/ModelInfo", body=JSON.json(body))
+    response = HTTP.request("POST", url(model) * "/ModelInfo", body=JSON.json(body))
     check_response(response, 200)
     parsed = JSON.parse(String(response.body))
     check_parsed_response(parsed)
     return parsed["support"]["ApplyJacobian"]
 end
 
-function supports_apply_hessian(url, name)
+function supports_apply_hessian(model::HTTPModel)
     body = Dict(
-        "name" => name
+        "name" =>name(model)
     )
-    response = HTTP.request("POST", url * "/ModelInfo", body=JSON.json(body))
+    response = HTTP.request("POST", url(model) * "/ModelInfo", body=JSON.json(body))
     check_response(response, 200)
     parsed = JSON.parse(String(response.body))
     check_parsed_response(parsed)
