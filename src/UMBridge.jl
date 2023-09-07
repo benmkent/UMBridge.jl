@@ -40,12 +40,12 @@ function evaluate(model::HTTPModel, input, config)
     return parsed["output"]
 end
 
-function gradient(model::HTTPModel, out_wrt, in_wrt, parameters, sens, config = Dict())
+function gradient(model::HTTPModel, out_wrt, in_wrt, input, sens, config = Dict())
     body = Dict(
         "name" =>name(model),
         "outWrt" => out_wrt,
         "inWrt" => in_wrt,
-        "parameters" => parameters,
+        "input" => input,
         "sens" => sens,
         "config" => config
     )
@@ -57,12 +57,12 @@ function gradient(model::HTTPModel, out_wrt, in_wrt, parameters, sens, config = 
     return parsed["output"]
 end
 
-function apply_jacobian(model::HTTPModel, out_wrt, in_wrt, parameters, vec, config = Dict())
+function apply_jacobian(model::HTTPModel, out_wrt, in_wrt, input, vec, config = Dict())
     body = Dict(
         "name" =>name(model),
         "outWrt" => out_wrt,
         "inWrt" => in_wrt,
-        "parameters" => parameters,
+        "input" => input,
         "vec" => vec,
         "config" => config
     )
@@ -74,13 +74,13 @@ function apply_jacobian(model::HTTPModel, out_wrt, in_wrt, parameters, vec, conf
     return parsed["output"]
 end
 
-function apply_hessian(model::HTTPModel, out_wrt, in_wrt1, in_wrt2, parameters, vec, sens, config = Dict())
+function apply_hessian(model::HTTPModel, out_wrt, in_wrt1, in_wrt2, input, vec, sens, config = Dict())
     body = Dict(
         "name" =>name(model),
         "outWrt" => out_wrt,
         "inWrt1" => in_wrt1,
         "inWrt2" => in_wrt2,
-        "parameters" => parameters,
+        "input" => input,
         "vec" => vec,
         "sens" => sens,
         "config" => config
