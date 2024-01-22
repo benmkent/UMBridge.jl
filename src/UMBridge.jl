@@ -2,6 +2,8 @@ module UMBridge
 
 import HTTP
 import JSON
+import Base.Threads
+using Parameters
 
 # Make HTTP request following UM-Bridge protocol
 
@@ -25,10 +27,10 @@ function check_parsed_response(parsed)
     end
 end
 
-function evaluate(model::HTTPModel, input, config)
+function evaluate(model, input, config)
     body = Dict(
-        "name" =>name(model),
-        "input" => input,
+        "name"   => name(model),
+        "input"  => input,
         "config" => config
     )
 
@@ -76,7 +78,7 @@ end
 
 function apply_hessian(model::HTTPModel, out_wrt, in_wrt1, in_wrt2, input, vec, sens, config = Dict())
     body = Dict(
-        "name" =>name(model),
+        "name"   => name(model),
         "outWrt" => out_wrt,
         "inWrt1" => in_wrt1,
         "inWrt2" => in_wrt2,
@@ -111,7 +113,7 @@ end
 
 function model_input_sizes(model::HTTPModel, config = Dict())
     body = Dict(
-        "name" =>name(model),
+        "name"   => name(model),
         "config" => config
     )
     response = HTTP.request("POST", url(model) * "/InputSizes", body=JSON.json(body))
@@ -123,7 +125,7 @@ end
 
 function model_output_sizes(model::HTTPModel, config = Dict())
     body = Dict(
-        "name" =>name(model),
+        "name"   => name(model),
         "config" => config
     )
     response = HTTP.request("POST", url(model) * "/OutputSizes", body=JSON.json(body))
@@ -135,7 +137,7 @@ end
 
 function supports_evaluate(model::HTTPModel)
     body = Dict(
-        "name" =>name(model)
+        "name" => name(model)
     )
     response = HTTP.request("POST", url(model) * "/ModelInfo", body=JSON.json(body))
     check_response(response, 200)
@@ -146,7 +148,7 @@ end
 
 function supports_gradient(model::HTTPModel)
     body = Dict(
-        "name" =>name(model)
+        "name" => name(model)
     )
     response = HTTP.request("POST", url(model) * "/ModelInfo", body=JSON.json(body))
     check_response(response, 200)
@@ -157,7 +159,7 @@ end
 
 function supports_apply_jacobian(model::HTTPModel)
     body = Dict(
-        "name" =>name(model)
+        "name" => name(model)
     )
     response = HTTP.request("POST", url(model) * "/ModelInfo", body=JSON.json(body))
     check_response(response, 200)
@@ -168,13 +170,187 @@ end
 
 function supports_apply_hessian(model::HTTPModel)
     body = Dict(
-        "name" =>name(model)
+        "name" => name(model)
     )
     response = HTTP.request("POST", url(model) * "/ModelInfo", body=JSON.json(body))
     check_response(response, 200)
     parsed = JSON.parse(String(response.body))
     check_parsed_response(parsed)
     return parsed["support"]["ApplyHessian"]
+end
+
+@with_kw mutable struct Model
+    name::String
+    inputSizes::AbstractArray
+    outputSizes::AbstractArray
+    supportsEvaluate::Bool = true
+    supportsGradient::Bool = false
+    supportsJacobian::Bool = false
+    supportsHessian::Bool  = false
+    evaluate::Function = (input::Any, config::Any) -> (error("Evaluate: Not implemented"))
+    gradient::Function = (outWrt::Any, inWrt::Any, input::Any, sens::Any, config::Any) -> (error("Gradient: Not implemented"))
+    applyJacobian::Function = (outWrt::Any, inWrt::Any, input::Any, vec::Any, config::Any) -> (error("Apply Jacobian: Not implemented"))
+    applyHessian::Function = (outWrt::Any, inWrt1::Any, inWrt2::Any, input::Any, sens::Any, vec::Any, config::Any) -> (error("Apply Hessian: Not implemented"))
+end
+
+name(model::Model) = model.name
+inputSizes(model::Model) = model.inputSizes
+outputSizes(model::Model) = model.outputSizes
+
+supportsEvaluate(model::Model) = model.supportsEvaluate
+supportsGradient(model::Model) = model.supportsGradient
+supportsJacobian(model::Model) = model.supportsJacobian
+supportsHessian(model::Model) = model.supportsHessian
+
+function define_evaluate(model::Model, model_evaluate)
+    model.evaluate = model_evaluate
+end
+
+function define_gradient(model::Model, model_gradient)
+    model.gradient = model_gradient
+end
+
+function define_applyjacobian(model::Model, model_jacobian)
+    model.applyJacobian = model_jacobian
+end
+
+function define_applyhessian(model::Model, model_hessian)
+    model.applyHessian = model_hessian
+end
+
+function get_model_from_name(models::Vector, model_name::String)
+    for model in models
+        if name(model) == model_name
+            return model
+        end
+    end
+    return nothing
+end
+
+function inputRequest(models::Vector)
+    function handler(request::HTTP.Request)
+        model_name = JSON.parse(String(request.body))["name"]
+        model = get_model_from_name(models, model_name)
+        body = Dict(
+            "inputSizes" => [inputSizes(model)]
+        )
+        return HTTP.Response(JSON.json(body))
+    end
+    return handler
+end
+
+function outputRequest(models::Vector)
+    function handler(request::HTTP.Request)
+        model_name = JSON.parse(String(request.body))["name"]
+        model = get_model_from_name(models, model_name)
+        body = Dict(
+            "outputSizes" => [outputSizes(model)]
+        )
+        return HTTP.Response(JSON.json(body))
+    end
+    return handler
+end
+
+function infoRequest(models::Vector)
+     function handler(request::HTTP.Request)
+        model_name = JSON.parse(String(request.body))["name"]
+        model = get_model_from_name(models, model_name)
+        body = Dict(
+            "Evaluate" => supportsEvaluate(model),
+            "Gradient" => supportsGradient(model),
+            "ApplyJacobian" => supportsJacobian(model),
+            "ApplyHessian" => supportsHessian(model)
+        )
+        return HTTP.Response(JSON.json(body))
+    end
+    return handler
+end
+
+function evaluateRequest(models::Vector)
+     function handler(request::HTTP.Request)
+        model_name = JSON.parse(String(request.body))["name"]
+        model_parameters = JSON.parse(String(request.body))["input"]
+        model_config = JSON.parse(String(request.body))["config"]
+        model = get_model_from_name(models, model_name)
+        # Apply model's evaluate
+        output = model.evaluate(model_parameters, model_config)
+        body = Dict(
+            "output" => output
+        )
+        return HTTP.Response(JSON.json(body))
+    end
+    return handler
+end
+
+function gradientRequest(models::Vector)
+     function handler(request::HTTP.Request)
+        model_name = JSON.parse(String(request.body))["name"]
+        model_inWrt = JSON.parse(String(request.body))["inWrt"]
+        model_outWrt = JSON.parse(String(request.body))["outWrt"]
+        model_sens = JSON.parse(String(request.body))["sens"]
+        model_parameters = JSON.parse(String(request.body))["input"]
+        model_config = JSON.parse(String(request.body))["config"]
+        model = get_model_from_name(models, model_name)
+        # Apply model's gradient
+        output = model.gradient(model_outWrt, model_inWrt, model_parameters, model_sens, model_config)
+        body = Dict(
+            "output" => output
+        )
+        return HTTP.Response(JSON.json(body))
+    end
+    return handler
+end
+
+function applyJacobianRequest(models::Vector)
+     function handler(request::HTTP.Request)
+        model_name = JSON.parse(String(request.body))["name"]
+        model_inWrt = JSON.parse(String(request.body))["inWrt"]
+        model_outWrt = JSON.parse(String(request.body))["outWrt"]
+        model_vec = JSON.parse(String(request.body))["vec"]
+        model_parameters = JSON.parse(String(request.body))["input"]
+        model_config = JSON.parse(String(request.body))["config"]
+        model = get_model_from_name(models, model_name)
+        # Apply model's gradient
+        output = model.applyJacobian(model_outWrt, model_inWrt, model_parameters, model_vec, model_config)
+        body = Dict(
+            "output" => output
+        )
+        return HTTP.Response(JSON.json(body))
+    end
+    return handler
+end
+
+function applyHessianRequest(models::Vector)
+     function handler(request::HTTP.Request)
+        model_name = JSON.parse(String(request.body))["name"]
+        model_inWrt1 = JSON.parse(String(request.body))["inWrt1"]
+        model_inWrt2 = JSON.parse(String(request.body))["inWrt2"]
+        model_outWrt = JSON.parse(String(request.body))["outWrt"]
+        model_sens = JSON.parse(String(request.body))["sens"]
+        model_vec = JSON.parse(String(request.body))["vec"]
+        model_parameters = JSON.parse(String(request.body))["input"]
+        model_config = JSON.parse(String(request.body))["config"]
+        model = get_model_from_name(models, model_name)
+        # Apply model's gradient
+        output = model.applyHessian(model_outWrt, model_inWrt1, model_inWrt2, model_parameters, model_sens, model_vec, model_config)
+        body = Dict(
+            "output" => output
+        )
+        return HTTP.Response(JSON.json(body))
+    end
+    return handler
+end
+
+function serve_models(models::Vector, port=4242, max_workers=1)
+    router = HTTP.Router()
+    HTTP.register!(router, "POST", "/InputSizes", inputRequest(models))
+    HTTP.register!(router, "POST", "/OutputSizes", outputRequest(models))
+    HTTP.register!(router, "GET", "/Info", infoRequest(models))
+    HTTP.register!(router, "POST", "/Evaluate", evaluateRequest(models))
+    HTTP.register!(router, "POST", "/Gradient", gradientRequest(models))
+    HTTP.register!(router, "POST", "/ApplyJacobian", applyJacobianRequest(models))
+    HTTP.register!(router, "POST", "/ApplyHessian", applyHessianRequest(models))
+    server = HTTP.serve!(router, port)
 end
 
 end
