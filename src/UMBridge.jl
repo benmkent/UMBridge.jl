@@ -253,6 +253,17 @@ end
 
 function infoRequest(models::Vector)
      function handler(request::HTTP.Request)
+		body = Dict(
+			"protocolVersion" => 1.0,
+			"models" => [model.name for model in models]
+		)
+        return HTTP.Response(JSON.json(body))
+    end
+    return handler
+end
+
+function modelinfoRequest(models::Vector)
+     function handler(request::HTTP.Request)
         model_name = JSON.parse(String(request.body))["name"]
         model = get_model_from_name(models, model_name)
         body = Dict(
@@ -346,6 +357,7 @@ function serve_models(models::Vector, port=4242, max_workers=1)
     HTTP.register!(router, "POST", "/InputSizes", inputRequest(models))
     HTTP.register!(router, "POST", "/OutputSizes", outputRequest(models))
     HTTP.register!(router, "GET", "/Info", infoRequest(models))
+    HTTP.register!(router, "POST", "/ModelInfo", modelinfoRequest(models))
     HTTP.register!(router, "POST", "/Evaluate", evaluateRequest(models))
     HTTP.register!(router, "POST", "/Gradient", gradientRequest(models))
     HTTP.register!(router, "POST", "/ApplyJacobian", applyJacobianRequest(models))
