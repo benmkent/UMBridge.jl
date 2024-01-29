@@ -1,7 +1,7 @@
 name = "UMBridge"
 uuid = "0ac74fe0-b753-4e62-be71-04a8383fbbef"
 authors = ["UM-Bridge Team"]
-version = "1.0.3"
+version = "1.0.4"
 
 
 [deps]
