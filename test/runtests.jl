@@ -158,3 +158,86 @@ end
     @test isapprox(httpValue, exactValue, rtol=1e-14)
     
 end
+
+
+using Zygote  # For automatic differentiation
+
+# Define model for 1D function f(x) = x^2 that uses autodiff
+model = UMBridge.Model(
+    name = "quadratic",
+    inputSizes = [1],
+    outputSizes = [1],
+    supportsGradient = true,
+    evaluate = (input, config) -> input[1]^2,
+    gradient = (outWrt, inWrt, input, sens, config) -> (Zygote.gradient(x -> x^2, input[1])[1] * sens[1])
+)
+
+function testserver_autodiff_gradient(models)
+    input = [2.0]  # Example input
+    sens = [1.0]
+
+    body = Dict(
+        "name" => UMBridge.name(models[1]),
+        "inWrt" => [1],
+        "outWrt" => [1],
+        "sens" => sens,
+        "input" => input,
+        "config" => Dict()
+    )
+
+    # Make gradient request
+    response_input = UMBridge.gradientRequest(models)(HTTP.Request("POST", "/Gradient", [], JSON.json(body)))
+    expected_gradient = models[1].gradient(1, 1, input, sens, Dict())
+    
+    # Verify the gradient application result 
+    return response_input.status == 200 && JSON.parse(String(response_input.body))["output"] == expected_gradient
+end
+
+models = [model]
+@testset "UMBridge Autodiff Test" begin
+    @test testserver_autodiff_gradient(models)
+end
+
+
+# Define model for 2D function f(x) = x^2 that uses autodiff
+model = UMBridge.Model(
+    name = "quadratic2D",
+    inputSizes = [2],
+    outputSizes = [2],
+    supportsJacobian = true,
+    evaluate = (input, config) -> [input[1]^2, input[2]^2],
+    applyJacobian = (outWrt, inWrt, input, vec, config) -> Zygote.jacobian(x -> [x[1]^2, x[2]^2], input)[1] * vec
+)
+
+function testserver_autodiff_jacobian(models)
+    input = [2.0, 3.0]  # example 2D input
+    vec = [1.0, 1.0]    # vector for Jacobian application
+
+    body = Dict(
+        "name" => UMBridge.name(models[1]),
+        "outWrt" => [1, 2],
+        "inWrt" => [1, 2],
+        "input" => input,
+        "vec" => vec,
+        "config" => Dict()
+    )
+
+     # Make jacobian request
+    response_input = UMBridge.applyJacobianRequest(models)(HTTP.Request("POST", "/ApplyJacobian", [], JSON.json(body)))
+    expected_jacobian_application = models[1].applyJacobian(1, 1, input, vec, Dict())
+
+    # Print results
+    println("Expected Jacobian application result: ", expected_jacobian_application)
+    println("Response from server: ", JSON.parse(String(response_input.body))["output"])
+
+    # Verify the jacobian application result
+    is_correct = response_input.status == 200 && all(JSON.parse(String(response_input.body))["output"][i] == expected_jacobian_application[i] for i in 1:length(input))
+    println("Test passed: ", is_correct)
+    return is_correct
+end
+
+
+@testset "UMBridge 2D Apply Jacobian Test" begin
+    models_2D = [model]
+    @test testserver_autodiff_jacobian(models_2D)
+end
