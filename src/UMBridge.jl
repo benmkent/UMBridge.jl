@@ -369,7 +369,7 @@ function serve_models(models::Vector, port=4242, max_workers=1)
     HTTP.register!(router, "POST", "/Gradient", gradientRequest(models))
     HTTP.register!(router, "POST", "/ApplyJacobian", applyJacobianRequest(models))
     HTTP.register!(router, "POST", "/ApplyHessian", applyHessianRequest(models))
-    server = HTTP.serve!(router, port)
+    server = HTTP.serve(router, port)
 end
 
 end
