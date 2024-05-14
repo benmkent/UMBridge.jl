@@ -244,7 +244,7 @@ function outputRequest(models::Vector)
         model_name = JSON.parse(String(request.body))["name"]
         model = get_model_from_name(models, model_name)
         body = Dict(
-            "outputSizes" => [outputSizes(model)]
+            "outputSizes" => outputSizes(model)
         )
         return HTTP.Response(JSON.json(body))
     end
