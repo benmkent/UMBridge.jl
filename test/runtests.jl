@@ -159,9 +159,6 @@ end
     
 end
 
-
-using Zygote  # For automatic differentiation
-
 # Define model for 1D function f(x) = x^2 that uses autodiff
 model = UMBridge.Model(
     name = "quadratic",
@@ -169,7 +166,7 @@ model = UMBridge.Model(
     outputSizes = [1],
     supportsGradient = true,
     evaluate = (input, config) -> input[1]^2,
-    gradient = (outWrt, inWrt, input, sens, config) -> (Zygote.gradient(x -> x^2, input[1])[1] * sens[1])
+    gradient = (outWrt, inWrt, input, sens, config) -> 2*input[1][1] * sens[1]
 )
 
 function testserver_autodiff_gradient(models)
@@ -206,7 +203,7 @@ model = UMBridge.Model(
     outputSizes = [2],
     supportsJacobian = true,
     evaluate = (input, config) -> [input[1]^2, input[2]^2],
-    applyJacobian = (outWrt, inWrt, input, vec, config) -> Zygote.jacobian(x -> [x[1]^2, x[2]^2], input)[1] * vec
+    applyJacobian = (outWrt, inWrt, input, vec, config) -> [2*input[1][1] 0 ; 0 2*input[2][1]] * vec
 )
 
 function testserver_autodiff_jacobian(models)
