@@ -232,7 +232,7 @@ function inputRequest(models::Vector)
         model_name = JSON.parse(String(request.body))["name"]
         model = get_model_from_name(models, model_name)
         body = Dict(
-            "inputSizes" => [inputSizes(model)]
+            "inputSizes" => inputSizes(model)
         )
         return HTTP.Response(JSON.json(body))
     end
@@ -244,7 +244,7 @@ function outputRequest(models::Vector)
         model_name = JSON.parse(String(request.body))["name"]
         model = get_model_from_name(models, model_name)
         body = Dict(
-            "outputSizes" => [outputSizes(model)]
+            "outputSizes" => outputSizes(model)
         )
         return HTTP.Response(JSON.json(body))
     end
@@ -369,7 +369,7 @@ function serve_models(models::Vector, port=4242, max_workers=1)
     HTTP.register!(router, "POST", "/Gradient", gradientRequest(models))
     HTTP.register!(router, "POST", "/ApplyJacobian", applyJacobianRequest(models))
     HTTP.register!(router, "POST", "/ApplyHessian", applyHessianRequest(models))
-    server = HTTP.serve!(router, port)
+    server = HTTP.serve(router, port)
 end
 
 end
