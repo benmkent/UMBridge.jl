@@ -12,23 +12,6 @@ function testmodel_supported_operations(model)
    ])
 end
 
-function testserver(models)
-    # Serve model
-    port = 4242
-    server = UMBridge.serve_models(models, port)
-    # Shut down server
-    close(server)
-    return true
-end
-
-function testclientserverpair(models, httpmodel)
-    server = UMBridge.serve_models(models, 4242)
-    input = UMBridge.model_input_sizes(httpmodel)[1] == 1
-    output = UMBridge.model_output_sizes(httpmodel)[1] == 1
-    close(server)
-    return all([input, output])
-end
-
 function testserver_sizes(models)
     body = Dict(
         "name" => UMBridge.name(models[1]),
@@ -121,8 +104,6 @@ end
     modelinput = UMBridge.model_input_sizes(httpmodel)
     modeloutput = UMBridge.model_output_sizes(httpmodel)
     models = [UMBridge.Model(name = "forward", inputSizes = modelinput, outputSizes = modeloutput)]
-    #@test testserver(models)
-    #@test testclientserverpair(models,httpmodel)
     @test testserver_sizes(models)
     @test testserver_info(models)
     @test testserver_evaluate(models)
