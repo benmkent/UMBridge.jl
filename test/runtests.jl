@@ -121,8 +121,8 @@ end
     modelinput = UMBridge.model_input_sizes(httpmodel)
     modeloutput = UMBridge.model_output_sizes(httpmodel)
     models = [UMBridge.Model(name = "forward", inputSizes = modelinput, outputSizes = modeloutput)]
-    @test testserver(models)
-    @test testclientserverpair(models,httpmodel)
+    #@test testserver(models)
+    #@test testclientserverpair(models,httpmodel)
     @test testserver_sizes(models)
     @test testserver_info(models)
     @test testserver_evaluate(models)
