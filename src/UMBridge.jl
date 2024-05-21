@@ -284,14 +284,20 @@ function evaluateRequest(models::Vector)
 	parsed_body = JSON.parse(String(request.body))
 	# Extract the model name, input, and config directly from parsed_body
 	model_name = parsed_body["name"]
-        model_parameters = parsed_body["input"]
-        model_config = parsed_body["config"]
-	
 	model = get_model_from_name(models, model_name)
-	# Apply model's evaluate
-        output = model.evaluate(model_parameters, model_config)
+        model_parameters = parsed_body["input"]
+        
+	if haskey(parsed_body,"config")
+		model_config = parsed_body["config"]
+	
+		# Apply model's evaluate
+        	output = model.evaluate(model_parameters, model_config)
+	else
+        	output = model.evaluate(model_parameters)
+	end
+
         body = Dict(
-		"output" => output
+		    "output" => [output]
 		)
         return HTTP.Response(JSON.json(body))
     end
@@ -302,16 +308,22 @@ function gradientRequest(models::Vector)
      function handler(request::HTTP.Request)
 	parsed_body = JSON.parse(String(request.body))
         model_name = parsed_body["name"]
-        model_inWrt = parsed_body["inWrt"]
+        model = get_model_from_name(models, model_name)
+        
+	model_inWrt = parsed_body["inWrt"]
         model_outWrt = parsed_body["outWrt"]
         model_sens = parsed_body["sens"]
         model_parameters = parsed_body["input"]
-        model_config = parsed_body["config"]
-        model = get_model_from_name(models, model_name)
-        # Apply model's gradient
-        output = model.gradient(model_outWrt, model_inWrt, model_parameters, model_sens, model_config)
+        
+	if haskey(parsed_body, "config")
+		model_config = parsed_body["config"]
+       		# Apply model's gradient
+        	output = model.gradient(model_outWrt, model_inWrt, model_parameters, model_sens, model_config)
+	else
+        	output = model.gradient(model_outWrt, model_inWrt, model_parameters, model_sens)
+	end
         body = Dict(
-            "output" => output
+		    "output" => [output]
         )
         return HTTP.Response(JSON.json(body))
     end
@@ -322,16 +334,22 @@ function applyJacobianRequest(models::Vector)
      function handler(request::HTTP.Request)
 	parsed_body = JSON.parse(String(request.body))
         model_name = parsed_body["name"]
-        model_inWrt = parsed_body["inWrt"]
+        model = get_model_from_name(models, model_name)
+        
+	model_inWrt = parsed_body["inWrt"]
         model_outWrt = parsed_body["outWrt"]
         model_vec = parsed_body["vec"]
         model_parameters = parsed_body["input"]
-        model_config =parsed_body["config"]
-        model = get_model_from_name(models, model_name)
-        # Apply model's Jacobian
-        output = model.applyJacobian(model_outWrt, model_inWrt, model_parameters, model_vec, model_config)
-        body = Dict(
-            "output" => output
+        
+	if haskey(parsed_body, "config")
+		model_config =parsed_body["config"]
+        	# Apply model's Jacobian
+        	output = model.applyJacobian(model_outWrt, model_inWrt, model_parameters, model_vec, model_config)
+        else
+		output = model.applyJacobian(model_outWrt, model_inWrt, model_parameters, model_vec, model_config)
+	end
+	body = Dict(
+		    "output" => [output]
         )
         return HTTP.Response(JSON.json(body))
     end
@@ -342,18 +360,24 @@ function applyHessianRequest(models::Vector)
      function handler(request::HTTP.Request)
 	parsed_body = JSON.parse(String(request.body))
         model_name = parsed_body["name"]
-        model_inWrt1 = parsed_body["inWrt1"]
+        model = get_model_from_name(models, model_name)
+        
+	model_inWrt1 = parsed_body["inWrt1"]
         model_inWrt2 = parsed_body["inWrt2"]
         model_outWrt = parsed_body["outWrt"]
         model_sens = parsed_body["sens"]
         model_vec = parsed_body["vec"]
         model_parameters = parsed_body["input"]
-        model_config = parsed_body["config"]
-        model = get_model_from_name(models, model_name)
-        # Apply model's Hessian
-        output = model.applyHessian(model_outWrt, model_inWrt1, model_inWrt2, model_parameters, model_sens, model_vec, model_config)
+        
+	if haskey(parsed_body, "config")
+		model_config = parsed_body["config"]
+        	# Apply model's Hessian
+        	output = model.applyHessian(model_outWrt, model_inWrt1, model_inWrt2, model_parameters, model_sens, model_vec, model_config)
+	else
+        	output = model.applyHessian(model_outWrt, model_inWrt1, model_inWrt2, model_parameters, model_sens, model_vec)
+	end
         body = Dict(
-            "output" => output
+		    "output" => [output]
         )
         return HTTP.Response(JSON.json(body))
     end
