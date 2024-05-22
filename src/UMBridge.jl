@@ -28,7 +28,7 @@ function check_parsed_response(parsed)
     end
 end
 
-function evaluate(model, input, config)
+function evaluate(model, input, config = Dict())
     body = Dict(
         "name"   => name(model),
         "input"  => input,
@@ -282,18 +282,32 @@ function evaluateRequest(models::Vector)
      function handler(request::HTTP.Request)
 	# Parse the JSON body
 	parsed_body = JSON.parse(String(request.body))
-	# Extract the model name, input, and config directly from parsed_body
+	# Extract the model name directly from parsed_body
 	model_name = parsed_body["name"]
 	model = get_model_from_name(models, model_name)
+	if model == nothing
+		print("Model name not found")
+		return HTTP.Response(400)
+	end
+
+	# Extract inputs and check
         model_parameters = parsed_body["input"]
+	if length(model_parameters) != inputSizes(model)[1]
+		print("Invalid input size")
+		return HTTP.Response(400)
+	end
         
+	# Extract config
 	if haskey(parsed_body,"config")
 		model_config = parsed_body["config"]
-	
-		# Apply model's evaluate
-        	output = model.evaluate(model_parameters, model_config)
 	else
-        	output = model.evaluate(model_parameters)
+		model_config = Dict()
+	end
+	# Apply model's evaluate
+	output = model.evaluate(model_parameters, model_config)
+	if length(output) != outputSizes(model)[1]
+		print("Invalid output size")
+		return HTTP.Response(400)
 	end
 
         body = Dict(
