@@ -28,7 +28,7 @@ function check_parsed_response(parsed)
     end
 end
 
-function evaluate(model, input, config)
+function evaluate(model, input, config = Dict())
     body = Dict(
         "name"   => name(model),
         "input"  => input,
@@ -232,6 +232,11 @@ function inputRequest(models::Vector)
     function handler(request::HTTP.Request)
         model_name = JSON.parse(String(request.body))["name"]
         model = get_model_from_name(models, model_name)
+	if model == nothing
+		print("Model name not found")
+		return HTTP.Response(400)
+	end
+
         body = Dict(
             "inputSizes" => inputSizes(model)
         )
@@ -244,6 +249,11 @@ function outputRequest(models::Vector)
     function handler(request::HTTP.Request)
         model_name = JSON.parse(String(request.body))["name"]
         model = get_model_from_name(models, model_name)
+	if model == nothing
+		print("Model name not found")
+		return HTTP.Response(400)
+	end
+
         body = Dict(
             "outputSizes" => outputSizes(model)
         )
@@ -267,6 +277,11 @@ function modelinfoRequest(models::Vector)
      function handler(request::HTTP.Request)
         model_name = JSON.parse(String(request.body))["name"]
         model = get_model_from_name(models, model_name)
+	if model == nothing
+		print("Model name not found")
+		return HTTP.Response(400)
+	end
+
         body = Dict( "support" => Dict(
             "Evaluate" => supportsEvaluate(model),
             "Gradient" => supportsGradient(model),
@@ -282,16 +297,41 @@ function evaluateRequest(models::Vector)
      function handler(request::HTTP.Request)
 	# Parse the JSON body
 	parsed_body = JSON.parse(String(request.body))
-	# Extract the model name, input, and config directly from parsed_body
+	# Extract the model name directly from parsed_body
 	model_name = parsed_body["name"]
-        model_parameters = parsed_body["input"]
-        model_config = parsed_body["config"]
-	
 	model = get_model_from_name(models, model_name)
+	if model == nothing
+		print("Model name not found")
+		return HTTP.Response(400)
+	end
+
+	# Extract inputs and check
+        model_parameters = parsed_body["input"]
+	if length(model_parameters) != length(inputSizes(model))
+		print("Invalid input size")
+		return HTTP.Response(400)
+	end
+        if !supportsEvaluate(model)
+		print("This model does not support evaluate")
+		return HTTP.Response(400)
+	end
+
+
+	# Extract config
+	if haskey(parsed_body,"config")
+		model_config = parsed_body["config"]
+	else
+		model_config = Dict()
+	end
 	# Apply model's evaluate
-        output = model.evaluate(model_parameters, model_config)
+	output = model.evaluate(model_parameters, model_config)
+	if length(output) != length(outputSizes(model))
+		print("Invalid output size")
+		return HTTP.Response(400)
+	end
+
         body = Dict(
-		"output" => output
+		    "output" => [output]
 		)
         return HTTP.Response(JSON.json(body))
     end
@@ -302,16 +342,43 @@ function gradientRequest(models::Vector)
      function handler(request::HTTP.Request)
 	parsed_body = JSON.parse(String(request.body))
         model_name = parsed_body["name"]
-        model_inWrt = parsed_body["inWrt"]
-        model_outWrt = parsed_body["outWrt"]
-        model_sens = parsed_body["sens"]
-        model_parameters = parsed_body["input"]
-        model_config = parsed_body["config"]
         model = get_model_from_name(models, model_name)
-        # Apply model's gradient
-        output = model.gradient(model_outWrt, model_inWrt, model_parameters, model_sens, model_config)
+        if model == nothing
+		print("Model name not found")
+		return HTTP.Response(400)
+	end
+	if !supportsGradient(model)
+		print("This model does not support gradients")
+		return HTTP.Response(400)
+	end
+
+	model_inWrt = parsed_body["inWrt"]
+	if 0 > model_inWrt >= length(inputSizes(model))
+		print("Invalid inWrt")
+		return HTTP.Response(400)
+	end
+	model_outWrt = parsed_body["outWrt"]
+	if 0 > model_outWrt >= length(inputSizes(model))
+		print("Invalid outWrt")
+		return HTTP.Response(400)
+	end
+	model_sens = parsed_body["sens"]
+        model_parameters = parsed_body["input"]
+	if length(model_parameters) != length(inputSizes(model))
+		print("Invalid input size")
+		return HTTP.Response(400)
+	end
+        
+	if haskey(parsed_body, "config")
+		model_config = parsed_body["config"]
+	else
+		model_config = Dict()
+	end
+	# Apply model's gradient
+	output = model.gradient(model_outWrt, model_inWrt, model_parameters, model_sens, model_config)
+
         body = Dict(
-            "output" => output
+		    "output" => [output]
         )
         return HTTP.Response(JSON.json(body))
     end
@@ -322,16 +389,31 @@ function applyJacobianRequest(models::Vector)
      function handler(request::HTTP.Request)
 	parsed_body = JSON.parse(String(request.body))
         model_name = parsed_body["name"]
-        model_inWrt = parsed_body["inWrt"]
+        model = get_model_from_name(models, model_name)
+        if model == nothing
+		print("Model name not found")
+		return HTTP.Response(400)
+	end
+	if !supportsJacobian(model)
+		print("This model does not support jacobians")
+		return HTTP.Response(400)
+	end
+
+
+	model_inWrt = parsed_body["inWrt"]
         model_outWrt = parsed_body["outWrt"]
         model_vec = parsed_body["vec"]
         model_parameters = parsed_body["input"]
-        model_config =parsed_body["config"]
-        model = get_model_from_name(models, model_name)
-        # Apply model's Jacobian
-        output = model.applyJacobian(model_outWrt, model_inWrt, model_parameters, model_vec, model_config)
-        body = Dict(
-            "output" => output
+        
+	if haskey(parsed_body, "config")
+		model_config = parsed_body["config"]
+        else
+		model_config = Dict()
+	end
+	# Apply model's Jacobian
+	output = model.applyJacobian(model_outWrt, model_inWrt, model_parameters, model_vec, model_config)
+	body = Dict(
+		    "output" => [output]
         )
         return HTTP.Response(JSON.json(body))
     end
@@ -342,18 +424,33 @@ function applyHessianRequest(models::Vector)
      function handler(request::HTTP.Request)
 	parsed_body = JSON.parse(String(request.body))
         model_name = parsed_body["name"]
-        model_inWrt1 = parsed_body["inWrt1"]
+        model = get_model_from_name(models, model_name)
+        if model == nothing
+		print("Model name not found")
+		return HTTP.Response(400)
+	end
+	if !supportsHessian(model)
+		print("This model does not support hessians")
+		return HTTP.Response(400)
+	end
+
+	model_inWrt1 = parsed_body["inWrt1"]
         model_inWrt2 = parsed_body["inWrt2"]
         model_outWrt = parsed_body["outWrt"]
         model_sens = parsed_body["sens"]
         model_vec = parsed_body["vec"]
         model_parameters = parsed_body["input"]
-        model_config = parsed_body["config"]
-        model = get_model_from_name(models, model_name)
-        # Apply model's Hessian
-        output = model.applyHessian(model_outWrt, model_inWrt1, model_inWrt2, model_parameters, model_sens, model_vec, model_config)
+        
+	if haskey(parsed_body, "config")
+		model_config = parsed_body["config"]
+	else
+		model_config = Dict()
+	end
+	# Apply model's Hessian
+	output = model.applyHessian(model_outWrt, model_inWrt1, model_inWrt2, model_parameters, model_sens, model_vec, model_config)
+	
         body = Dict(
-            "output" => output
+		    "output" => [output]
         )
         return HTTP.Response(JSON.json(body))
     end
