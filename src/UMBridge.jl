@@ -353,12 +353,12 @@ function gradientRequest(models::Vector)
 	end
 
 	model_inWrt = parsed_body["inWrt"]
-	if 0 > inWrt >= length(inputSizes(model))
+	if 0 > model_inWrt >= length(inputSizes(model))
 		print("Invalid inWrt")
 		return HTTP.Response(400)
 	end
 	model_outWrt = parsed_body["outWrt"]
-	if 0 > outWrt >= length(inputSizes(model))
+	if 0 > model_outWrt >= length(inputSizes(model))
 		print("Invalid outWrt")
 		return HTTP.Response(400)
 	end
