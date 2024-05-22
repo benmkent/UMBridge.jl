@@ -307,7 +307,7 @@ function evaluateRequest(models::Vector)
 
 	# Extract inputs and check
         model_parameters = parsed_body["input"]
-	if length(model_parameters) != inputSizes(model)[1]
+	if length(model_parameters) != length(inputSizes(model))
 		print("Invalid input size")
 		return HTTP.Response(400)
 	end
@@ -325,7 +325,7 @@ function evaluateRequest(models::Vector)
 	end
 	# Apply model's evaluate
 	output = model.evaluate(model_parameters, model_config)
-	if length(output) != outputSizes(model)[1]
+	if length(output) != length(outputSizes(model))
 		print("Invalid output size")
 		return HTTP.Response(400)
 	end
@@ -353,9 +353,21 @@ function gradientRequest(models::Vector)
 	end
 
 	model_inWrt = parsed_body["inWrt"]
-        model_outWrt = parsed_body["outWrt"]
-        model_sens = parsed_body["sens"]
+	if 0 > inWrt >= length(inputSizes(model))
+		print("Invalid inWrt")
+		return HTTP.Response(400)
+	end
+	model_outWrt = parsed_body["outWrt"]
+	if 0 > outWrt >= length(inputSizes(model))
+		print("Invalid outWrt")
+		return HTTP.Response(400)
+	end
+	model_sens = parsed_body["sens"]
         model_parameters = parsed_body["input"]
+	if length(model_parameters) != length(inputSizes(model))
+		print("Invalid input size")
+		return HTTP.Response(400)
+	end
         
 	if haskey(parsed_body, "config")
 		model_config = parsed_body["config"]
