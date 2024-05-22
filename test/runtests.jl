@@ -165,7 +165,7 @@ function testserver_autodiff_gradient(models)
 
     # Make gradient request
     response_input = UMBridge.gradientRequest(models)(HTTP.Request("POST", "/Gradient", [], JSON.json(body)))
-    expected_gradient = models[1].gradient(1, 1, input, sens, Dict())
+    expected_gradient = [models[1].gradient(1, 1, input, sens, Dict())]
     
     # Verify the gradient application result 
     return response_input.status == 200 && JSON.parse(String(response_input.body))["output"] == expected_gradient
@@ -202,7 +202,7 @@ function testserver_autodiff_jacobian(models)
 
      # Make jacobian request
     response_input = UMBridge.applyJacobianRequest(models)(HTTP.Request("POST", "/ApplyJacobian", [], JSON.json(body)))
-    expected_jacobian_application = models[1].applyJacobian(1, 1, input, vec, Dict())
+    expected_jacobian_application = [models[1].applyJacobian(1, 1, input, vec, Dict())]
 
     # Print results
     println("Expected Jacobian application result: ", expected_jacobian_application)
