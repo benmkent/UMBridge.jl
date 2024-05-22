@@ -156,8 +156,8 @@ function testserver_autodiff_gradient(models)
 
     body = Dict(
         "name" => UMBridge.name(models[1]),
-        "inWrt" => [1],
-        "outWrt" => [1],
+        "inWrt" => 1,
+        "outWrt" => 1,
         "sens" => sens,
         "input" => input,
         "config" => Dict()
