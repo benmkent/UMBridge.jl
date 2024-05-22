@@ -233,8 +233,13 @@ function inputRequest(models::Vector)
         model_name = JSON.parse(String(request.body))["name"]
         model = get_model_from_name(models, model_name)
 	if model == nothing
-		print("Model name not found")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "ModelNotFound",
+				"message" => "Model name not found"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 
         body = Dict(
@@ -250,8 +255,13 @@ function outputRequest(models::Vector)
         model_name = JSON.parse(String(request.body))["name"]
         model = get_model_from_name(models, model_name)
 	if model == nothing
-		print("Model name not found")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "ModelNotFound",
+				"message" => "Model name not found"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 
         body = Dict(
@@ -278,8 +288,13 @@ function modelinfoRequest(models::Vector)
         model_name = JSON.parse(String(request.body))["name"]
         model = get_model_from_name(models, model_name)
 	if model == nothing
-		print("Model name not found")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "ModelNotFound",
+				"message" => "Model name not found"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 
         body = Dict( "support" => Dict(
@@ -301,8 +316,13 @@ function evaluateRequest(models::Vector)
 	model_name = parsed_body["name"]
 	model = get_model_from_name(models, model_name)
 	if model == nothing
-		print("Model name not found")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "ModelNotFound",
+				"message" => "Model name not found"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 
 	# Extract inputs and check
@@ -344,8 +364,13 @@ function gradientRequest(models::Vector)
         model_name = parsed_body["name"]
         model = get_model_from_name(models, model_name)
         if model == nothing
-		print("Model name not found")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "ModelNotFound",
+				"message" => "Model name not found"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 	if !supportsGradient(model)
 		print("This model does not support gradients")
@@ -391,8 +416,13 @@ function applyJacobianRequest(models::Vector)
         model_name = parsed_body["name"]
         model = get_model_from_name(models, model_name)
         if model == nothing
-		print("Model name not found")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "ModelNotFound",
+				"message" => "Model name not found"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 	if !supportsJacobian(model)
 		print("This model does not support jacobians")
@@ -426,8 +456,13 @@ function applyHessianRequest(models::Vector)
         model_name = parsed_body["name"]
         model = get_model_from_name(models, model_name)
         if model == nothing
-		print("Model name not found")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "ModelNotFound",
+				"message" => "Model name not found"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 	if !supportsHessian(model)
 		print("This model does not support hessians")
