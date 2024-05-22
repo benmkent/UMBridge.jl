@@ -47,9 +47,9 @@ function testserver_gradient(models)
     UMBridge.define_gradient(models[1], (outWrt, inWrt, input, sens, config) -> ([1]))
     body = Dict(
         "name" => UMBridge.name(models[1]),
-        "inWrt" => [1],
-        "outWrt" => [1],
-        "sens" => [1],
+        "inWrt" => 1,
+        "outWrt" => 1,
+	"sens" => [1],
         "input" => [1],
         "config" => Dict()
     )
@@ -62,8 +62,8 @@ function testserver_jacobian(models)
     UMBridge.define_applyjacobian(models[1], (outWrt, inWrt, input, vec, config) -> ([1]))
     body = Dict(
         "name" => UMBridge.name(models[1]),
-        "inWrt" => [1],
-        "outWrt" => [1],
+        "inWrt" => 1,
+        "outWrt" => 1,
         "input" => [1],
         "vec" => [1],
         "config" => Dict()
@@ -77,9 +77,9 @@ function testserver_hessian(models)
     UMBridge.define_applyhessian(models[1], (outWrt, inWrt1, inWrt2, input, sens, vec, config) -> ([1]))
     body = Dict(
         "name" => UMBridge.name(models[1]),
-        "inWrt1" => [1],
-        "inWrt2" => [1],
-        "outWrt" => [1],
+        "inWrt1" => 1,
+        "inWrt2" => 1,
+        "outWrt" => 1,
         "input" => [1],
         "vec" => [1],
         "sens" => [1],
@@ -184,32 +184,32 @@ model = UMBridge.Model(
     outputSizes = [2],
     supportsJacobian = true,
     evaluate = (input, config) -> [input[1]^2, input[2]^2],
-    applyJacobian = (outWrt, inWrt, input, vec, config) -> [2*input[1][1] 0 ; 0 2*input[2][1]] * vec
+    applyJacobian = (outWrt, inWrt, input, vect, config) -> [2*input[1][1] 0 ; 0 2*input[2][1]] * vect
 )
 
 function testserver_autodiff_jacobian(models)
     input = [2.0, 3.0]  # example 2D input
-    vec = [1.0, 1.0]    # vector for Jacobian application
+    vect = [1.0, 1.0]    # vector for Jacobian application
 
     body = Dict(
         "name" => UMBridge.name(models[1]),
-        "outWrt" => [1, 2],
-        "inWrt" => [1, 2],
-        "input" => input,
-        "vec" => vec,
+        "outWrt" => 1,
+        "inWrt" => 1,
+	"input" => input,
+        "vec" => vect,
         "config" => Dict()
     )
 
      # Make jacobian request
     response_input = UMBridge.applyJacobianRequest(models)(HTTP.Request("POST", "/ApplyJacobian", [], JSON.json(body)))
-    expected_jacobian_application = [models[1].applyJacobian(1, 1, input, vec, Dict())]
+    expected_jacobian_application = [models[1].applyJacobian(1, 1, input, vect, Dict())]
 
     # Print results
     println("Expected Jacobian application result: ", expected_jacobian_application)
     println("Response from server: ", JSON.parse(String(response_input.body))["output"])
 
     # Verify the jacobian application result
-    is_correct = response_input.status == 200 && all(JSON.parse(String(response_input.body))["output"][i] == expected_jacobian_application[i] for i in 1:length(input))
+    is_correct = response_input.status == 200 && JSON.parse(String(response_input.body))["output"] == expected_jacobian_application
     println("Test passed: ", is_correct)
     return is_correct
 end

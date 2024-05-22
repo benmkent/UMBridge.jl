@@ -406,12 +406,12 @@ function applyJacobianRequest(models::Vector)
         model_parameters = parsed_body["input"]
         
 	if haskey(parsed_body, "config")
-		model_config =parsed_body["config"]
-        	# Apply model's Jacobian
-        	output = model.applyJacobian(model_outWrt, model_inWrt, model_parameters, model_vec, model_config)
+		model_config = parsed_body["config"]
         else
-		output = model.applyJacobian(model_outWrt, model_inWrt, model_parameters, model_vec, model_config)
+		model_config = Dict()
 	end
+	# Apply model's Jacobian
+	output = model.applyJacobian(model_outWrt, model_inWrt, model_parameters, model_vec, model_config)
 	body = Dict(
 		    "output" => [output]
         )
@@ -434,7 +434,6 @@ function applyHessianRequest(models::Vector)
 		return HTTP.Response(400)
 	end
 
-
 	model_inWrt1 = parsed_body["inWrt1"]
         model_inWrt2 = parsed_body["inWrt2"]
         model_outWrt = parsed_body["outWrt"]
@@ -444,11 +443,12 @@ function applyHessianRequest(models::Vector)
         
 	if haskey(parsed_body, "config")
 		model_config = parsed_body["config"]
-        	# Apply model's Hessian
-        	output = model.applyHessian(model_outWrt, model_inWrt1, model_inWrt2, model_parameters, model_sens, model_vec, model_config)
 	else
-        	output = model.applyHessian(model_outWrt, model_inWrt1, model_inWrt2, model_parameters, model_sens, model_vec)
+		model_config = Dict()
 	end
+	# Apply model's Hessian
+	output = model.applyHessian(model_outWrt, model_inWrt1, model_inWrt2, model_parameters, model_sens, model_vec, model_config)
+	
         body = Dict(
 		    "output" => [output]
         )
