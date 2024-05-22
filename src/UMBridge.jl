@@ -311,7 +311,7 @@ function evaluateRequest(models::Vector)
 		print("Invalid input size")
 		return HTTP.Response(400)
 	end
-        if !supports_evaluate(model)
+        if !supportsEvaluate(model)
 		print("This model does not support evaluate")
 		return HTTP.Response(400)
 	end
@@ -347,7 +347,7 @@ function gradientRequest(models::Vector)
 		print("Model name not found")
 		return HTTP.Response(400)
 	end
-	if !supports_gradient(model)
+	if !supportsGradient(model)
 		print("This model does not support gradients")
 		return HTTP.Response(400)
 	end
@@ -359,11 +359,12 @@ function gradientRequest(models::Vector)
         
 	if haskey(parsed_body, "config")
 		model_config = parsed_body["config"]
-       		# Apply model's gradient
-        	output = model.gradient(model_outWrt, model_inWrt, model_parameters, model_sens, model_config)
 	else
-        	output = model.gradient(model_outWrt, model_inWrt, model_parameters, model_sens)
+		model_config = Dict()
 	end
+	# Apply model's gradient
+	output = model.gradient(model_outWrt, model_inWrt, model_parameters, model_sens, model_config)
+
         body = Dict(
 		    "output" => [output]
         )
@@ -381,7 +382,7 @@ function applyJacobianRequest(models::Vector)
 		print("Model name not found")
 		return HTTP.Response(400)
 	end
-	if !supports_apply_jacobian(model)
+	if !supportsJacobian(model)
 		print("This model does not support jacobians")
 		return HTTP.Response(400)
 	end
@@ -416,7 +417,7 @@ function applyHessianRequest(models::Vector)
 		print("Model name not found")
 		return HTTP.Response(400)
 	end
-	if !supports_apply_hessian(model)
+	if !supportsHessian(model)
 		print("This model does not support hessians")
 		return HTTP.Response(400)
 	end
