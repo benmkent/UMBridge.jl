@@ -335,6 +335,18 @@ function evaluateRequest(models::Vector)
 			)
 		)
 		return HTTP.Response(400, JSON.json(body))
+
+	end
+	for i in 1:length(model_parameters)
+		if length(model_parameters[i]) != inputSizes(model)[i]
+			body = Dict(
+				    "error" => Dict(
+						    "type" => "InvalidInput",
+						    "message" => "Invalid input"
+						    )
+				    )
+			return HTTP.Response(400, JSON.json(body))
+		end
 	end
         if !supportsEvaluate(model)
 		body = Dict(
@@ -397,22 +409,22 @@ function gradientRequest(models::Vector)
 		return HTTP.Response(400, JSON.json(body))
 	end
 
-	model_inWrt = parsed_body["inWrt"]
-	if 0 > model_inWrt >= length(inputSizes(model))
+	model_inWrt = parsed_body["inWrt"] + 1 # account for julia indices starting at 1
+	if model_inWrt < 1 || model_inWrt > length(inputSizes(model))
 		body = Dict(
 			"error" => Dict(
 				"type" => "InvalidInput",
-				"message" => "Invalid inWrt"
+				"message" => "Invalid inWrt index! Expected between 0 and  and number of inputs minus one, but got " * string(model_inWrt - 1)
 			)
 		)
 		return HTTP.Response(400, JSON.json(body))
 	end
-	model_outWrt = parsed_body["outWrt"]
-	if 0 > model_outWrt >= length(inputSizes(model))
+	model_outWrt = parsed_body["outWrt"] + 1 # account for julia indices starting at 1
+	if model_outWrt < 1 || model_outWrt > length(inputSizes(model))
 		body = Dict(
 			"error" => Dict(
 				"type" => "InvalidInput",
-				"message" => "Invalid outWrt"
+				"message" => "Invalid outWrt index! Expected between 0 and  and number of inputs minus one, but got " * string(model_outWrt - 1)
 			)
 		)
 		return HTTP.Response(400, JSON.json(body))
@@ -427,6 +439,18 @@ function gradientRequest(models::Vector)
 			)
 		)
 		return HTTP.Response(400, JSON.json(body))
+
+	end
+	for i in 1:length(model_parameters)
+		if length(model_parameters[i]) != inputSizes(model)[i]
+			body = Dict(
+				    "error" => Dict(
+						    "type" => "InvalidInput",
+						    "message" => "Invalid input"
+						    )
+				    )
+			return HTTP.Response(400, JSON.json(body))
+		end
 	end
         
 	if haskey(parsed_body, "config")
