@@ -233,8 +233,13 @@ function inputRequest(models::Vector)
         model_name = JSON.parse(String(request.body))["name"]
         model = get_model_from_name(models, model_name)
 	if model == nothing
-		print("Model name not found")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "ModelNotFound",
+				"message" => "Model name not found"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 
         body = Dict(
@@ -250,8 +255,13 @@ function outputRequest(models::Vector)
         model_name = JSON.parse(String(request.body))["name"]
         model = get_model_from_name(models, model_name)
 	if model == nothing
-		print("Model name not found")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "ModelNotFound",
+				"message" => "Model name not found"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 
         body = Dict(
@@ -278,8 +288,13 @@ function modelinfoRequest(models::Vector)
         model_name = JSON.parse(String(request.body))["name"]
         model = get_model_from_name(models, model_name)
 	if model == nothing
-		print("Model name not found")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "ModelNotFound",
+				"message" => "Model name not found"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 
         body = Dict( "support" => Dict(
@@ -301,19 +316,34 @@ function evaluateRequest(models::Vector)
 	model_name = parsed_body["name"]
 	model = get_model_from_name(models, model_name)
 	if model == nothing
-		print("Model name not found")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "ModelNotFound",
+				"message" => "Model name not found"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 
 	# Extract inputs and check
         model_parameters = parsed_body["input"]
 	if length(model_parameters) != length(inputSizes(model))
-		print("Invalid input size")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "InvalidInput",
+				"message" => "Invalid input"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
         if !supportsEvaluate(model)
-		print("This model does not support evaluate")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "UnsupportedFeature",
+				"message" => "Unsupported feature"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 
 
@@ -326,8 +356,13 @@ function evaluateRequest(models::Vector)
 	# Apply model's evaluate
 	output = model.evaluate(model_parameters, model_config)
 	if length(output) != length(outputSizes(model))
-		print("Invalid output size")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "InvalidInput",
+				"message" => "Invalid output"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 
         body = Dict(
@@ -344,29 +379,54 @@ function gradientRequest(models::Vector)
         model_name = parsed_body["name"]
         model = get_model_from_name(models, model_name)
         if model == nothing
-		print("Model name not found")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "ModelNotFound",
+				"message" => "Model name not found"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 	if !supportsGradient(model)
-		print("This model does not support gradients")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "UnsupportedFeature",
+				"message" => "Unsupported feature"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 
 	model_inWrt = parsed_body["inWrt"]
 	if 0 > model_inWrt >= length(inputSizes(model))
-		print("Invalid inWrt")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "InvalidInput",
+				"message" => "Invalid inWrt"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 	model_outWrt = parsed_body["outWrt"]
 	if 0 > model_outWrt >= length(inputSizes(model))
-		print("Invalid outWrt")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "InvalidInput",
+				"message" => "Invalid outWrt"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 	model_sens = parsed_body["sens"]
         model_parameters = parsed_body["input"]
 	if length(model_parameters) != length(inputSizes(model))
-		print("Invalid input size")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "InvalidInput",
+				"message" => "Invalid input"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
         
 	if haskey(parsed_body, "config")
@@ -391,12 +451,22 @@ function applyJacobianRequest(models::Vector)
         model_name = parsed_body["name"]
         model = get_model_from_name(models, model_name)
         if model == nothing
-		print("Model name not found")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "ModelNotFound",
+				"message" => "Model name not found"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 	if !supportsJacobian(model)
-		print("This model does not support jacobians")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "UnsupportedFeature",
+				"message" => "Unsupported feature"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 
 
@@ -426,12 +496,22 @@ function applyHessianRequest(models::Vector)
         model_name = parsed_body["name"]
         model = get_model_from_name(models, model_name)
         if model == nothing
-		print("Model name not found")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "ModelNotFound",
+				"message" => "Model name not found"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 	if !supportsHessian(model)
-		print("This model does not support hessians")
-		return HTTP.Response(400)
+		body = Dict(
+			"error" => Dict(
+				"type" => "UnsupportedFeature",
+				"message" => "Unsupported feature"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
 	end
 
 	model_inWrt1 = parsed_body["inWrt1"]
