@@ -47,8 +47,8 @@ function testserver_gradient(models)
     UMBridge.define_gradient(models[1], (outWrt, inWrt, input, sens, config) -> ([1]))
     body = Dict(
         "name" => UMBridge.name(models[1]),
-        "inWrt" => 1,
-        "outWrt" => 1,
+        "inWrt" => 0,
+        "outWrt" => 0,
 	"sens" => [1],
         "input" => [1],
         "config" => Dict()
@@ -62,8 +62,8 @@ function testserver_jacobian(models)
     UMBridge.define_applyjacobian(models[1], (outWrt, inWrt, input, vec, config) -> ([1]))
     body = Dict(
         "name" => UMBridge.name(models[1]),
-        "inWrt" => 1,
-        "outWrt" => 1,
+        "inWrt" => 0,
+        "outWrt" => 0,
         "input" => [1],
         "vec" => [1],
         "config" => Dict()
@@ -77,9 +77,9 @@ function testserver_hessian(models)
     UMBridge.define_applyhessian(models[1], (outWrt, inWrt1, inWrt2, input, sens, vec, config) -> ([1]))
     body = Dict(
         "name" => UMBridge.name(models[1]),
-        "inWrt1" => 1,
-        "inWrt2" => 1,
-        "outWrt" => 1,
+        "inWrt1" => 0,
+        "inWrt2" => 0,
+        "outWrt" => 0,
         "input" => [1],
         "vec" => [1],
         "sens" => [1],
@@ -156,8 +156,8 @@ function testserver_autodiff_gradient(models)
 
     body = Dict(
         "name" => UMBridge.name(models[1]),
-        "inWrt" => 1,
-        "outWrt" => 1,
+        "inWrt" => 0,
+        "outWrt" => 0,
         "sens" => sens,
         "input" => input,
         "config" => Dict()
@@ -193,8 +193,8 @@ function testserver_autodiff_jacobian(models)
 
     body = Dict(
         "name" => UMBridge.name(models[1]),
-        "outWrt" => 1,
-        "inWrt" => 1,
+        "outWrt" => 0,
+        "inWrt" => 0,
 	"input" => input,
         "vec" => vect,
         "config" => Dict()
