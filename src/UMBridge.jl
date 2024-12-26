@@ -366,7 +366,35 @@ function evaluateRequest(models::Vector)
 		model_config = Dict()
 	end
 	# Apply model's evaluate
-	output = model.evaluate(model_parameters, model_config)
+	output = nothing
+    try 
+        output = model.evaluate(model_parameters, model_config)
+    catch e
+            println("An error occurred: ", e)  # Print the error message
+            # das ist ganz oben was beim julia fehler ausgegeben wird und eher nützlich als der rest glaub ich
+            showerror(stderr, e)  # This prints the stack trace
+            println("")
+            # Get and print the stack trace 
+            #das hier gibt quasi den ganzen rest des errors aus ob der einem so sehr hilft keine ahnung
+            st = stacktrace()
+            result = "Stacktrace:\n"
+            println("Stacktrace:")
+            for (index, frame) in enumerate(st)
+                println("[", index, "] ", frame)
+                result *= "[$(index)] $(repr(frame))\n"
+            end
+
+            # Join the sanitized stack trace into one long string with newline separation
+            #sanitized_stacktrace = join(sanitized, "\n")
+            
+            body = Dict(
+                "error" => Dict(
+                    "type" => "InvalidEvaluation",
+                    "message" => "Model was unable to provide a valid evaluation due to: " * string(e) * result
+                )
+            )
+            return HTTP.Response(500, JSON.json(body))
+        end
 	if length(output) != length(outputSizes(model))
 		body = Dict(
 			"error" => Dict(
