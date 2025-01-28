@@ -182,8 +182,8 @@ end
 
 @with_kw mutable struct Model
     name::String
-    inputSizes::AbstractArray
-    outputSizes::AbstractArray
+    inputSizes::Function = (config::Any) -> error("Input sizes not implemented")
+    outputSizes::Function = (config::Any) -> error("Output sizes not implemented")
     supportsEvaluate::Bool = true
     supportsGradient::Bool = false
     supportsJacobian::Bool = false
@@ -195,13 +195,19 @@ end
 end
 
 name(model::Model) = model.name
-inputSizes(model::Model) = model.inputSizes
-outputSizes(model::Model) = model.outputSizes
 
 supportsEvaluate(model::Model) = model.supportsEvaluate
 supportsGradient(model::Model) = model.supportsGradient
 supportsJacobian(model::Model) = model.supportsJacobian
 supportsHessian(model::Model) = model.supportsHessian
+
+function define_inputSizes(model::Model, model_inputSizes)
+    model.inputSizes = model_inputSizes
+end
+
+function define_outputSizes(model::Model, model_outputSizes)
+    model.outputSizes = model_outputSizes
+end
 
 function define_evaluate(model::Model, model_evaluate)
     model.evaluate = model_evaluate
@@ -219,6 +225,26 @@ function define_applyhessian(model::Model, model_hessian)
     model.applyHessian = model_hessian
 end
 
+function runtime_error(model::Model, e, str1, str2, str3)
+        println("An error occurred during ", str1, " due to: ", e)
+        showerror(stderr, e)
+        println("")
+        st = stacktrace()
+        result = "Stacktrace:\n"
+        println("Stacktrace:")
+        for (index, frame) in enumerate(st)
+            println("[", index, "] ", frame)
+            result *= "[$(index)] $(repr(frame))\n"
+        end
+        body = Dict(
+            "error" => Dict(
+                "type" => "Invalid"*str2,
+                "message" => "Model was unable to provide a valid " * str3 * " due to: " * string(e) * result
+            )
+        )
+        return HTTP.Response(500, JSON.json(body))
+end
+
 function get_model_from_name(models::Vector, model_name::String)
     for model in models
         if name(model) == model_name
@@ -230,8 +256,13 @@ end
 
 function inputRequest(models::Vector)
     function handler(request::HTTP.Request)
-        model_name = JSON.parse(String(request.body))["name"]
-        model = get_model_from_name(models, model_name)
+
+        # Parse the JSON body
+        parsed_body = JSON.parse(String(request.body))
+        
+        model_name = parsed_body["name"]
+    	model = get_model_from_name(models, model_name)
+        
 	if model == nothing
 		body = Dict(
 			"error" => Dict(
@@ -242,18 +273,35 @@ function inputRequest(models::Vector)
 		return HTTP.Response(400, JSON.json(body))
 	end
 
+    # Extract config
+	if haskey(parsed_body,"config")
+		model_config = parsed_body["config"]
+	else
+		model_config = Dict()
+	end 
+        
+    try
         body = Dict(
-            "inputSizes" => inputSizes(model)
+                "inputSizes" => model.inputSizes(model_config)
         )
         return HTTP.Response(JSON.json(body))
+    catch e
+        return runtime_error(model, e, "the evaluation of inputSizes", "InputSizes", "input size")
+    end 
+        
     end
     return handler
 end
 
 function outputRequest(models::Vector)
     function handler(request::HTTP.Request)
-        model_name = JSON.parse(String(request.body))["name"]
+
+        # Parse the JSON body
+        parsed_body = JSON.parse(String(request.body))
+        
+        model_name = parsed_body["name"]
         model = get_model_from_name(models, model_name)
+        
 	if model == nothing
 		body = Dict(
 			"error" => Dict(
@@ -264,10 +312,22 @@ function outputRequest(models::Vector)
 		return HTTP.Response(400, JSON.json(body))
 	end
 
+    # Extract config
+	if haskey(parsed_body,"config")
+		model_config = parsed_body["config"]
+	else
+		model_config = Dict()
+	end
+
+    try
         body = Dict(
-            "outputSizes" => outputSizes(model)
+                "outputSizes" => model.outputSizes(model_config)
         )
         return HTTP.Response(JSON.json(body))
+    catch e
+        return runtime_error(model, e, "the evaluation of outputSizes", "OutputSizes", "output size")
+    end 
+
     end
     return handler
 end
@@ -312,6 +372,13 @@ function evaluateRequest(models::Vector)
      function handler(request::HTTP.Request)
 	# Parse the JSON body
 	parsed_body = JSON.parse(String(request.body))
+
+    if haskey(parsed_body,"config")
+		model_config = parsed_body["config"]
+	else
+		model_config = Dict()
+	end
+    
 	# Extract the model name directly from parsed_body
 	model_name = parsed_body["name"]
 	model = get_model_from_name(models, model_name)
@@ -327,26 +394,35 @@ function evaluateRequest(models::Vector)
 
 	# Extract inputs and check
         model_parameters = parsed_body["input"]
-	if length(model_parameters) != length(inputSizes(model))
-		body = Dict(
-			"error" => Dict(
-				"type" => "InvalidInput",
-				"message" => "Invalid input"
-			)
-		)
-		return HTTP.Response(400, JSON.json(body))
-
-	end
+	try
+        if length(model_parameters) != length(model.inputSizes(model_config))
+    		body = Dict(
+    			"error" => Dict(
+    				"type" => "InvalidInput",
+    				"message" => "Invalid input"
+    			)
+    		)
+    		return HTTP.Response(400, JSON.json(body))
+    	end
+    catch e
+        return runtime_error(model, e, "the evaluation of inputSizes", "InputSizes", "input size")
+    end         
+            
 	for i in 1:length(model_parameters)
-		if length(model_parameters[i]) != inputSizes(model)[i]
-			body = Dict(
-				    "error" => Dict(
-						    "type" => "InvalidInput",
-						    "message" => "Invalid input"
-						    )
-				    )
-			return HTTP.Response(400, JSON.json(body))
-		end
+        try
+            if length(model_parameters[i]) != model.inputSizes(model_config)[i]
+                
+    			body = Dict(
+    				    "error" => Dict(
+    						    "type" => "InvalidInput",
+        						"message" => "Invalid input"
+    						    )
+    				    )
+    			return HTTP.Response(400, JSON.json(body))
+    		end
+        catch e
+            return runtime_error(model, e, "the evaluation of inputSizes", "InputSizes", "input size")
+        end         
 	end
         if !supportsEvaluate(model)
 		body = Dict(
@@ -357,53 +433,29 @@ function evaluateRequest(models::Vector)
 		)
 		return HTTP.Response(400, JSON.json(body))
 	end
-
-
-	# Extract config
-	if haskey(parsed_body,"config")
-		model_config = parsed_body["config"]
-	else
-		model_config = Dict()
-	end
+        
 	# Apply model's evaluate
-	output = nothing
+    # Declare `output` before the try-catch block
+    output = nothing
     try 
         output = model.evaluate(model_parameters, model_config)
     catch e
-            println("An error occurred: ", e)  # Print the error message
-            # das ist ganz oben was beim julia fehler ausgegeben wird und eher nützlich als der rest glaub ich
-            showerror(stderr, e)  # This prints the stack trace
-            println("")
-            # Get and print the stack trace 
-            #das hier gibt quasi den ganzen rest des errors aus ob der einem so sehr hilft keine ahnung
-            st = stacktrace()
-            result = "Stacktrace:\n"
-            println("Stacktrace:")
-            for (index, frame) in enumerate(st)
-                println("[", index, "] ", frame)
-                result *= "[$(index)] $(repr(frame))\n"
-            end
-
-            # Join the sanitized stack trace into one long string with newline separation
-            #sanitized_stacktrace = join(sanitized, "\n")
-            
-            body = Dict(
-                "error" => Dict(
-                    "type" => "InvalidEvaluation",
-                    "message" => "Model was unable to provide a valid evaluation due to: " * string(e) * result
-                )
-            )
-            return HTTP.Response(500, JSON.json(body))
+            return runtime_error(model, e, "evaluation", "Evaluation", "evaluation")
         end
-	if length(output) != length(outputSizes(model))
-		body = Dict(
-			"error" => Dict(
-				"type" => "InvalidInput",
-				"message" => "Invalid output"
-			)
-		)
-		return HTTP.Response(400, JSON.json(body))
-	end
+
+    try    
+    	if length(output) != length(model.outputSizes(model_config))
+    		body = Dict(
+    			"error" => Dict(
+    				"type" => "InvalidInput",
+    				"message" => "Invalid output"
+    			)
+    		)
+    		return HTTP.Response(400, JSON.json(body))
+    	end
+    catch e
+        return runtime_error(model, e, "the evaluation of outputSizes", "OutputSizes", "output size")
+    end
 
         body = Dict(
 		    "output" => [output]
@@ -415,7 +467,14 @@ end
 
 function gradientRequest(models::Vector)
      function handler(request::HTTP.Request)
-	parsed_body = JSON.parse(String(request.body))
+    parsed_body = JSON.parse(String(request.body))
+
+    if haskey(parsed_body, "config")
+		model_config = parsed_body["config"]
+	else
+		model_config = Dict()
+	end
+        
         model_name = parsed_body["name"]
         model = get_model_from_name(models, model_name)
         if model == nothing
@@ -438,61 +497,81 @@ function gradientRequest(models::Vector)
 	end
 
 	model_inWrt = parsed_body["inWrt"] + 1 # account for julia indices starting at 1
-	if model_inWrt < 1 || model_inWrt > length(inputSizes(model))
-		body = Dict(
-			"error" => Dict(
-				"type" => "InvalidInput",
-				"message" => "Invalid inWrt index! Expected between 0 and  and number of inputs minus one, but got " * string(model_inWrt - 1)
-			)
-		)
-		return HTTP.Response(400, JSON.json(body))
-	end
+    try
+    	if model_inWrt < 1 || model_inWrt > length(model.inputSizes(model_config))
+    		body = Dict(
+    			"error" => Dict(
+    				"type" => "InvalidInput",
+    				"message" => "Invalid inWrt index! Expected between 0 and  and number of inputs minus one, but got " * string(model_inWrt - 1)
+    			)
+    		)
+    		return HTTP.Response(400, JSON.json(body))
+    	end
+    catch e
+        return runtime_error(model, e, "the evaluation of inputSizes", "InputSizes", "input size")
+    end             
 	model_outWrt = parsed_body["outWrt"] + 1 # account for julia indices starting at 1
-	if model_outWrt < 1 || model_outWrt > length(inputSizes(model))
-		body = Dict(
-			"error" => Dict(
-				"type" => "InvalidInput",
-				"message" => "Invalid outWrt index! Expected between 0 and  and number of inputs minus one, but got " * string(model_outWrt - 1)
-			)
-		)
-		return HTTP.Response(400, JSON.json(body))
-	end
+    try
+    	if model_outWrt < 1 || model_outWrt > length(model.inputSizes(model_config))
+    		body = Dict(
+    			"error" => Dict(
+    				"type" => "InvalidInput",
+    				"message" => "Invalid outWrt index! Expected between 0 and  and number of inputs minus one, but got " * string(model_outWrt - 1)
+    			)
+    		)
+    		return HTTP.Response(400, JSON.json(body))
+    	end
+    catch e
+        return runtime_error(model, e, "the evaluation of inputSizes", "InputSizes", "input size")
+    end         
+        
 	model_sens = parsed_body["sens"]
         model_parameters = parsed_body["input"]
-	if length(model_parameters) != length(inputSizes(model))
-		body = Dict(
-			"error" => Dict(
-				"type" => "InvalidInput",
-				"message" => "Invalid input"
-			)
-		)
-		return HTTP.Response(400, JSON.json(body))
-
-	end
+    try
+    	if length(model_parameters) != length(model.inputSizes(model_config))
+    		body = Dict(
+    			"error" => Dict(
+    				"type" => "InvalidInput",
+    				"message" => "Invalid input"
+    			)
+    		)
+    		return HTTP.Response(400, JSON.json(body))
+    	end
+    catch e
+        return runtime_error(model, e, "the evaluation of inputSizes", "InputSizes", "input size")
+    end         
+            
 	for i in 1:length(model_parameters)
-		if length(model_parameters[i]) != inputSizes(model)[i]
-			body = Dict(
-				    "error" => Dict(
-						    "type" => "InvalidInput",
-						    "message" => "Invalid input"
-						    )
-				    )
-			return HTTP.Response(400, JSON.json(body))
-		end
+        try
+    		if length(model_parameters[i]) != inputSizes(model)[i]
+    			body = Dict(
+    				    "error" => Dict(
+    						    "type" => "InvalidInput",
+    						    "message" => "Invalid input"
+    						    )
+    				    )
+    			return HTTP.Response(400, JSON.json(body))
+    		end
+        catch e
+            return runtime_error(model, e, "the evaluation of inputSizes", "InputSizes", "input size")
+        end         
 	end
         
-	if haskey(parsed_body, "config")
-		model_config = parsed_body["config"]
-	else
-		model_config = Dict()
-	end
+	
 	# Apply model's gradient
-	output = model.gradient(model_outWrt, model_inWrt, model_parameters, model_sens, model_config)
+    output = nothing
+    try
+    	output = model.gradient(model_outWrt, model_inWrt, model_parameters, model_sens, model_config)
+    catch e
+            return runtime_error(model, e, "the evaluation of gradient", "Gradient", "gradient")
+    end
+    
 
         body = Dict(
-		    "output" => [output]
+    		"output" => [output]
         )
         return HTTP.Response(JSON.json(body))
+ 
     end
     return handler
 end
@@ -500,6 +579,13 @@ end
 function applyJacobianRequest(models::Vector)
      function handler(request::HTTP.Request)
 	parsed_body = JSON.parse(String(request.body))
+
+    if haskey(parsed_body, "config")
+		model_config = parsed_body["config"]
+    else
+		model_config = Dict()
+	end
+        
         model_name = parsed_body["name"]
         model = get_model_from_name(models, model_name)
         if model == nothing
@@ -527,13 +613,13 @@ function applyJacobianRequest(models::Vector)
         model_vec = parsed_body["vec"]
         model_parameters = parsed_body["input"]
         
-	if haskey(parsed_body, "config")
-		model_config = parsed_body["config"]
-        else
-		model_config = Dict()
-	end
+	
 	# Apply model's Jacobian
-	output = model.applyJacobian(model_outWrt, model_inWrt, model_parameters, model_vec, model_config)
+    try
+    	output = model.applyJacobian(model_outWrt, model_inWrt, model_parameters, model_vec, model_config)
+    catch e
+        return runtime_error(model, e, "the evaluation of jacobian", "Jacobian", "jacobian")
+    end
 	body = Dict(
 		    "output" => [output]
         )
@@ -545,6 +631,13 @@ end
 function applyHessianRequest(models::Vector)
      function handler(request::HTTP.Request)
 	parsed_body = JSON.parse(String(request.body))
+
+    if haskey(parsed_body, "config")
+		model_config = parsed_body["config"]
+	else
+		model_config = Dict()
+	end
+        
         model_name = parsed_body["name"]
         model = get_model_from_name(models, model_name)
         if model == nothing
@@ -573,13 +666,13 @@ function applyHessianRequest(models::Vector)
         model_vec = parsed_body["vec"]
         model_parameters = parsed_body["input"]
         
-	if haskey(parsed_body, "config")
-		model_config = parsed_body["config"]
-	else
-		model_config = Dict()
-	end
+	
 	# Apply model's Hessian
-	output = model.applyHessian(model_outWrt, model_inWrt1, model_inWrt2, model_parameters, model_sens, model_vec, model_config)
+    try
+    	output = model.applyHessian(model_outWrt, model_inWrt1, model_inWrt2, model_parameters, model_sens, model_vec, model_config)
+    catch e
+            return runtime_error(model, e, "the evaluation of hessian", "Hessian", "hessian")
+        end
 	
         body = Dict(
 		    "output" => [output]
