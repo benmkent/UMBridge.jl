@@ -239,13 +239,13 @@ function inputRequest(models::Vector)
 				"message" => "Model name not found"
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 
         body = Dict(
             "inputSizes" => inputSizes(model)
         )
-        return HTTP.Response(JSON.json(body))
+        return HTTP.Response(200, ["Content-Type" => "application/json"], JSON.json(body))
     end
     return handler
 end
@@ -261,13 +261,13 @@ function outputRequest(models::Vector)
 				"message" => "Model name not found"
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 
         body = Dict(
             "outputSizes" => outputSizes(model)
         )
-        return HTTP.Response(JSON.json(body))
+        return HTTP.Response(200, ["Content-Type" => "application/json"], JSON.json(body))
     end
     return handler
 end
@@ -278,7 +278,7 @@ function infoRequest(models::Vector)
 			"protocolVersion" => 1.0,
 			"models" => [model.name for model in models]
 		)
-        return HTTP.Response(JSON.json(body))
+        return HTTP.Response(200, ["Content-Type" => "application/json"], JSON.json(body))
     end
     return handler
 end
@@ -294,7 +294,7 @@ function modelinfoRequest(models::Vector)
 				"message" => "Model name not found"
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 
         body = Dict( "support" => Dict(
@@ -303,7 +303,7 @@ function modelinfoRequest(models::Vector)
             "ApplyJacobian" => supportsJacobian(model),
             "ApplyHessian" => supportsHessian(model)
         ))
-        return HTTP.Response(JSON.json(body))
+        return HTTP.Response(200, ["Content-Type" => "application/json"], JSON.json(body))
     end
     return handler
 end
@@ -322,7 +322,7 @@ function evaluateRequest(models::Vector)
 				"message" => "Model name not found"
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 
 	# Extract inputs and check
@@ -334,7 +334,7 @@ function evaluateRequest(models::Vector)
 				"message" => "Invalid input"
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 
 	end
 	for i in 1:length(model_parameters)
@@ -345,7 +345,7 @@ function evaluateRequest(models::Vector)
 						    "message" => "Invalid input"
 						    )
 				    )
-			return HTTP.Response(400, JSON.json(body))
+			return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 		end
 	end
         if !supportsEvaluate(model)
@@ -355,7 +355,7 @@ function evaluateRequest(models::Vector)
 				"message" => "Unsupported feature"
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 
 
@@ -374,13 +374,13 @@ function evaluateRequest(models::Vector)
 				"message" => "Invalid output"
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 
         body = Dict(
 		    "output" => [output]
 		)
-        return HTTP.Response(JSON.json(body))
+        return HTTP.Response(200, ["Content-Type" => "application/json"], JSON.json(body))
     end
     return handler
 end
@@ -397,7 +397,7 @@ function gradientRequest(models::Vector)
 				"message" => "Model name not found"
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 	if !supportsGradient(model)
 		body = Dict(
@@ -406,7 +406,7 @@ function gradientRequest(models::Vector)
 				"message" => "Unsupported feature"
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 
 	model_inWrt = parsed_body["inWrt"] + 1 # account for julia indices starting at 1
@@ -417,7 +417,7 @@ function gradientRequest(models::Vector)
 				"message" => "Invalid inWrt index! Expected between 0 and  and number of inputs minus one, but got " * string(model_inWrt - 1)
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 	model_outWrt = parsed_body["outWrt"] + 1 # account for julia indices starting at 1
 	if model_outWrt < 1 || model_outWrt > length(inputSizes(model))
@@ -427,7 +427,7 @@ function gradientRequest(models::Vector)
 				"message" => "Invalid outWrt index! Expected between 0 and  and number of inputs minus one, but got " * string(model_outWrt - 1)
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 	model_sens = parsed_body["sens"]
         model_parameters = parsed_body["input"]
@@ -438,7 +438,7 @@ function gradientRequest(models::Vector)
 				"message" => "Invalid input"
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 
 	end
 	for i in 1:length(model_parameters)
@@ -449,7 +449,7 @@ function gradientRequest(models::Vector)
 						    "message" => "Invalid input"
 						    )
 				    )
-			return HTTP.Response(400, JSON.json(body))
+			return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 		end
 	end
         
@@ -464,7 +464,7 @@ function gradientRequest(models::Vector)
         body = Dict(
 		    "output" => [output]
         )
-        return HTTP.Response(JSON.json(body))
+        return HTTP.Response(200, ["Content-Type" => "application/json"], JSON.json(body))
     end
     return handler
 end
@@ -481,7 +481,7 @@ function applyJacobianRequest(models::Vector)
 				"message" => "Model name not found"
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 	if !supportsJacobian(model)
 		body = Dict(
@@ -490,7 +490,7 @@ function applyJacobianRequest(models::Vector)
 				"message" => "Unsupported feature"
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 
 
@@ -509,7 +509,7 @@ function applyJacobianRequest(models::Vector)
 	body = Dict(
 		    "output" => [output]
         )
-        return HTTP.Response(JSON.json(body))
+        return HTTP.Response(200, ["Content-Type" => "application/json"], JSON.json(body))
     end
     return handler
 end
@@ -526,7 +526,7 @@ function applyHessianRequest(models::Vector)
 				"message" => "Model name not found"
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 	if !supportsHessian(model)
 		body = Dict(
@@ -535,7 +535,7 @@ function applyHessianRequest(models::Vector)
 				"message" => "Unsupported feature"
 			)
 		)
-		return HTTP.Response(400, JSON.json(body))
+		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 
 	model_inWrt1 = parsed_body["inWrt1"]
@@ -556,7 +556,7 @@ function applyHessianRequest(models::Vector)
         body = Dict(
 		    "output" => [output]
         )
-        return HTTP.Response(JSON.json(body))
+        return HTTP.Response(200, ["Content-Type" => "application/json"], JSON.json(body))
     end
     return handler
 end
