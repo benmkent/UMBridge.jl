@@ -195,6 +195,8 @@ end
 end
 
 name(model::Model) = model.name
+inputSizes(model::Model, config::Dict) = get(config,"inputSizes",model.inputSizes)
+outputSizes(model::Model, config::Dict) = get(config,"outputSizes",model.outputSizes)
 inputSizes(model::Model) = model.inputSizes
 outputSizes(model::Model) = model.outputSizes
 
@@ -241,9 +243,14 @@ function inputRequest(models::Vector)
 		)
 		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
-
+        # Extract config
+        if haskey(parsed_body,"config")
+            model_config = parsed_body["config"]
+        else
+            model_config = Dict()
+        end
         body = Dict(
-            "inputSizes" => inputSizes(model)
+            "inputSizes" => inputSizes(model, model_config)
         )
         return HTTP.Response(200, ["Content-Type" => "application/json"], JSON.json(body))
     end
@@ -263,9 +270,14 @@ function outputRequest(models::Vector)
 		)
 		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
-
+        # Extract config
+        if haskey(parsed_body,"config")
+            model_config = parsed_body["config"]
+        else
+            model_config = Dict()
+        end
         body = Dict(
-            "outputSizes" => outputSizes(model)
+            "outputSizes" => outputSizes(model, model_config)
         )
         return HTTP.Response(200, ["Content-Type" => "application/json"], JSON.json(body))
     end
@@ -315,6 +327,7 @@ function evaluateRequest(models::Vector)
 	# Extract the model name directly from parsed_body
 	model_name = parsed_body["name"]
 	model = get_model_from_name(models, model_name)
+
 	if model == nothing
 		body = Dict(
 			"error" => Dict(
@@ -325,9 +338,16 @@ function evaluateRequest(models::Vector)
 		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 
+    # Extract config
+	if haskey(parsed_body,"config")
+		model_config = parsed_body["config"]
+	else
+		model_config = Dict()
+	end
+
 	# Extract inputs and check
-        model_parameters = parsed_body["input"]
-	if length(model_parameters) != length(inputSizes(model))
+    model_parameters = parsed_body["input"]
+	if length(model_parameters) != length(inputSizes(model, model_config))
 		body = Dict(
 			"error" => Dict(
 				"type" => "InvalidInput",
@@ -338,7 +358,7 @@ function evaluateRequest(models::Vector)
 
 	end
 	for i in 1:length(model_parameters)
-		if length(model_parameters[i]) != inputSizes(model)[i]
+		if length(model_parameters[i]) != inputSizes(model, model_config)[i]
 			body = Dict(
 				    "error" => Dict(
 						    "type" => "InvalidInput",
@@ -358,16 +378,9 @@ function evaluateRequest(models::Vector)
 		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 
-
-	# Extract config
-	if haskey(parsed_body,"config")
-		model_config = parsed_body["config"]
-	else
-		model_config = Dict()
-	end
 	# Apply model's evaluate
 	output = model.evaluate(model_parameters, model_config)
-	if length(output) != length(outputSizes(model))
+	if length(output) != length(outputSizes(model, model_config))
 		body = Dict(
 			"error" => Dict(
 				"type" => "InvalidInput",
@@ -409,8 +422,15 @@ function gradientRequest(models::Vector)
 		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 
+    # Extract config
+	if haskey(parsed_body,"config")
+		model_config = parsed_body["config"]
+	else
+		model_config = Dict()
+	end
+
 	model_inWrt = parsed_body["inWrt"] + 1 # account for julia indices starting at 1
-	if model_inWrt < 1 || model_inWrt > length(inputSizes(model))
+	if model_inWrt < 1 || model_inWrt > length(inputSizes(model, model_config))
 		body = Dict(
 			"error" => Dict(
 				"type" => "InvalidInput",
@@ -420,7 +440,7 @@ function gradientRequest(models::Vector)
 		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 	model_outWrt = parsed_body["outWrt"] + 1 # account for julia indices starting at 1
-	if model_outWrt < 1 || model_outWrt > length(inputSizes(model))
+	if model_outWrt < 1 || model_outWrt > length(inputSizes(model, model_config))
 		body = Dict(
 			"error" => Dict(
 				"type" => "InvalidInput",
@@ -431,7 +451,7 @@ function gradientRequest(models::Vector)
 	end
 	model_sens = parsed_body["sens"]
         model_parameters = parsed_body["input"]
-	if length(model_parameters) != length(inputSizes(model))
+	if length(model_parameters) != length(inputSizes(model, model_config))
 		body = Dict(
 			"error" => Dict(
 				"type" => "InvalidInput",
@@ -442,7 +462,7 @@ function gradientRequest(models::Vector)
 
 	end
 	for i in 1:length(model_parameters)
-		if length(model_parameters[i]) != inputSizes(model)[i]
+		if length(model_parameters[i]) != inputSizes(model, model_config)[i]
 			body = Dict(
 				    "error" => Dict(
 						    "type" => "InvalidInput",
