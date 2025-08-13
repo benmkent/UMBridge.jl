@@ -243,14 +243,8 @@ function inputRequest(models::Vector)
 		)
 		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
-        # Extract config
-        if haskey(parsed_body,"config")
-            model_config = parsed_body["config"]
-        else
-            model_config = Dict()
-        end
         body = Dict(
-            "inputSizes" => inputSizes(model, model_config)
+            "inputSizes" => inputSizes(model)
         )
         return HTTP.Response(200, ["Content-Type" => "application/json"], JSON.json(body))
     end
@@ -270,14 +264,8 @@ function outputRequest(models::Vector)
 		)
 		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
-        # Extract config
-        if haskey(parsed_body,"config")
-            model_config = parsed_body["config"]
-        else
-            model_config = Dict()
-        end
         body = Dict(
-            "outputSizes" => outputSizes(model, model_config)
+            "outputSizes" => outputSizes(model)
         )
         return HTTP.Response(200, ["Content-Type" => "application/json"], JSON.json(body))
     end
@@ -348,10 +336,12 @@ function evaluateRequest(models::Vector)
 	# Extract inputs and check
     model_parameters = parsed_body["input"]
 	if length(model_parameters) != length(inputSizes(model, model_config))
+        input_length = length(model_parameters)
+        required_input_length = length(inputSizes(model, model_config))
 		body = Dict(
 			"error" => Dict(
 				"type" => "InvalidInput",
-				"message" => "Invalid input"
+				"message" => "Invalid output, length $input_length, required $required_input_length"
 			)
 		)
 		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
@@ -359,10 +349,12 @@ function evaluateRequest(models::Vector)
 	end
 	for i in 1:length(model_parameters)
 		if length(model_parameters[i]) != inputSizes(model, model_config)[i]
+            input_length = length(model_parameters[i])
+            required_input_length = length(inputSizes(model, model_config)[i])
 			body = Dict(
 				    "error" => Dict(
 						    "type" => "InvalidInput",
-						    "message" => "Invalid input"
+						    "message" => "Invalid input i=$i, length $input_length, required $required_input_length"
 						    )
 				    )
 			return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
@@ -381,10 +373,12 @@ function evaluateRequest(models::Vector)
 	# Apply model's evaluate
 	output = model.evaluate(model_parameters, model_config)
 	if length(output) != length(outputSizes(model, model_config))
+        output_length = length(output)
+        required_output_length = length(outputSizes(model, model_config))
 		body = Dict(
 			"error" => Dict(
 				"type" => "InvalidInput",
-				"message" => "Invalid output"
+				"message" => "Invalid output, length $output_length, required $required_output_length"
 			)
 		)
 		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
