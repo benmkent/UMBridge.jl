@@ -341,9 +341,10 @@ function evaluateRequest(models::Vector)
 		body = Dict(
 			"error" => Dict(
 				"type" => "InvalidInput",
-				"message" => "Invalid output, length $input_length, required $required_input_length"
+				"message" => "Invalid input, length $input_length, required $required_input_length"
 			)
 		)
+        println(model_config)
 		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 
 	end
@@ -357,6 +358,7 @@ function evaluateRequest(models::Vector)
 						    "message" => "Invalid input i=$i, length $input_length, required $required_input_length"
 						    )
 				    )
+            println(model_config)
 			return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 		end
 	end
@@ -381,6 +383,7 @@ function evaluateRequest(models::Vector)
 				"message" => "Invalid output, length $output_length, required $required_output_length"
 			)
 		)
+        println(model_config)
 		return HTTP.Response(400, ["Content-Type" => "application/json"], JSON.json(body))
 	end
 
