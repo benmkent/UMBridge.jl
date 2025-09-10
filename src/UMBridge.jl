@@ -369,7 +369,7 @@ function modelinfoRequest(models::Vector)
 end
 
 function evaluateRequest(models::Vector)
-     function handler(request::HTTP.Request)
+    function handler(request::HTTP.Request)
 	# Parse the JSON body
 	parsed_body = JSON.parse(String(request.body))
 
@@ -425,6 +425,7 @@ function evaluateRequest(models::Vector)
         end         
 	end
         if !supportsEvaluate(model)
+
 		body = Dict(
 			"error" => Dict(
 				"type" => "UnsupportedFeature",
@@ -433,32 +434,80 @@ function evaluateRequest(models::Vector)
 		)
 		return HTTP.Response(400, JSON.json(body))
 	end
-        
-	# Apply model's evaluate
-    # Declare `output` before the try-catch block
-    output = nothing
-    try 
-        output = model.evaluate(model_parameters, model_config)
-    catch e
-            return runtime_error(model, e, "evaluation", "Evaluation", "evaluation")
-        end
+                            
+  for i in eachindex(model_parameters)
+	  if !isa(model_parameters[i], AbstractArray)
+		  body = Dict(
+			  "error" => Dict(
+				  "type" => "InvalidInput",
+				  "message" => "Input must be an array of arrays!"
+			  )
+		  )
+		  return HTTP.Response(400, JSON.json(body))
+	  end
+	  if length(model_parameters[i]) != inputSizes(model)[i]
+		  body = Dict(
+			  "error" => Dict(
+				  "type" => "InvalidInput",
+				  "message" => "Input parameter $i has invalid length! Expected $(inputSizes(model)[i]) but got $(length(model_parameters[i])) instead!"
+			  )
+		  )
+		  return HTTP.Response(400, JSON.json(body))
+	  end
+  end
 
-    try    
-    	if length(output) != length(model.outputSizes(model_config))
-    		body = Dict(
-    			"error" => Dict(
-    				"type" => "InvalidInput",
-    				"message" => "Invalid output"
-    			)
-    		)
-    		return HTTP.Response(400, JSON.json(body))
-    	end
-    catch e
-        return runtime_error(model, e, "the evaluation of outputSizes", "OutputSizes", "output size")
-    end
+  # Extract config
+  if haskey(parsed_body, "config")
+	  model_config = parsed_body["config"]
+  else
+	  model_config = Dict()
+  end
 
+  # Evaluate the model
+  output = nothing
+  try 
+	  output = model.evaluate(model_parameters, model_config)
+  catch e
+	  return runtime_error(model, e, "evaluation", "Evaluation", "evaluation")
+  end
+
+  # Validate output length
+  try
+	  if length(output) != length(model.outputSizes(model_config))
+		  body = Dict(
+			  "error" => Dict(
+				  "type" => "InvalidOutput",
+				  "message" => "Invalid output"
+			  )
+		  )
+		  return HTTP.Response(400, JSON.json(body))
+	  end
+  catch e
+	  return runtime_error(model, e, "the evaluation of outputSizes", "OutputSizes", "output size")
+  end
+
+	for i in eachindex(output)
+		if !isa(output[i], AbstractArray)
+			body = Dict(
+					"error" => Dict(
+							"type" => "InvalidOutput",
+							"message" => "Output must be an array of arrays!"
+						)
+				)
+			return HTTP.Response(400, JSON.json(body))
+		end
+		if length(output[i]) != outputSizes(model)[i]
+			body = Dict(
+					"error" => Dict(
+							"type" => "InvalidOutput",
+							"message" => "Output parameter $i has invalid length! Expected $(outputSizes(model)[i]) but got $(length(output[i])) instead!"
+						)
+				)
+			return HTTP.Response(400, JSON.json(body))
+		end
+	end
         body = Dict(
-		    "output" => [output]
+		    "output" => output
 		)
         return HTTP.Response(JSON.json(body))
     end
@@ -527,36 +576,45 @@ function gradientRequest(models::Vector)
         
 	model_sens = parsed_body["sens"]
         model_parameters = parsed_body["input"]
-    try
-    	if length(model_parameters) != length(model.inputSizes(model_config))
-    		body = Dict(
-    			"error" => Dict(
-    				"type" => "InvalidInput",
-    				"message" => "Invalid input"
-    			)
-    		)
-    		return HTTP.Response(400, JSON.json(body))
-    	end
-    catch e
-        return runtime_error(model, e, "the evaluation of inputSizes", "InputSizes", "input size")
-    end         
-            
-	for i in 1:length(model_parameters)
-        try
-    		if length(model_parameters[i]) != inputSizes(model)[i]
-    			body = Dict(
-    				    "error" => Dict(
-    						    "type" => "InvalidInput",
-    						    "message" => "Invalid input"
-    						    )
-    				    )
-    			return HTTP.Response(400, JSON.json(body))
-    		end
-        catch e
-            return runtime_error(model, e, "the evaluation of inputSizes", "InputSizes", "input size")
-        end         
-	end
-        
+  try
+	  if length(model_parameters) != length(model.inputSizes(model_config))
+		  body = Dict(
+			  "error" => Dict(
+				  "type" => "InvalidInput",
+				  "message" => "Invalid number of input parameters"
+			  )
+		  )
+		  return HTTP.Response(400, JSON.json(body))
+	  end
+  catch e
+	  return runtime_error(model, e, "the evaluation of inputSizes", "InputSizes", "input size")
+  end
+
+  for i in eachindex(model_parameters)
+	  try
+		  if !isa(model_parameters[i], AbstractArray)
+			  body = Dict(
+				  "error" => Dict(
+					  "type" => "InvalidInput",
+					  "message" => "Input parameter $i must be an array!"
+				  )
+			  )
+			  return HTTP.Response(400, JSON.json(body))
+		  end
+
+		  if length(model_parameters[i]) != model.inputSizes(model_config)[i]
+			  body = Dict(
+			  	"error" => Dict(
+			  		"type" => "InvalidInput",
+			  		"message" => "Input parameter $i has invalid length! Expected $(model.inputSizes(model_config)[i]) but got $(length(model_parameters[i])) instead!"
+		  		)
+		  	)
+		  	return HTTP.Response(400, JSON.json(body))
+	  	end
+	  catch e
+	  	return runtime_error(model, e, "the evaluation of inputSizes", "InputSizes", "input size")
+  	end
+  end        
 	
 	# Apply model's gradient
     output = nothing
@@ -568,7 +626,7 @@ function gradientRequest(models::Vector)
     
 
         body = Dict(
-    		"output" => [output]
+		      "output" => output
         )
         return HTTP.Response(JSON.json(body))
  
@@ -612,16 +670,53 @@ function applyJacobianRequest(models::Vector)
         model_outWrt = parsed_body["outWrt"]
         model_vec = parsed_body["vec"]
         model_parameters = parsed_body["input"]
-        
-	
-	# Apply model's Jacobian
-    try
-    	output = model.applyJacobian(model_outWrt, model_inWrt, model_parameters, model_vec, model_config)
-    catch e
-        return runtime_error(model, e, "the evaluation of jacobian", "Jacobian", "jacobian")
-    end
-	body = Dict(
-		    "output" => [output]
+
+if length(model_parameters) != length(inputSizes(model))
+  body = Dict(
+    "error" => Dict(
+      "type" => "InvalidInput",
+      "message" => "Invalid input"
+    )
+  )
+  return HTTP.Response(400, JSON.json(body))
+end
+
+for i in eachindex(model_parameters)
+  if !isa(model_parameters[i], AbstractArray)
+    body = Dict(
+      "error" => Dict(
+        "type" => "InvalidInput",
+        "message" => "Input must be an array of arrays!"
+      )
+    )
+    return HTTP.Response(400, JSON.json(body))
+  end
+  if length(model_parameters[i]) != inputSizes(model)[i]
+    body = Dict(
+      "error" => Dict(
+        "type" => "InvalidInput",
+        "message" => "Input parameter $i has invalid length! Expected $(inputSizes(model)[i]) but got $(length(model_parameters[i])) instead!"
+      )
+    )
+    return HTTP.Response(400, JSON.json(body))
+  end
+end
+
+if haskey(parsed_body, "config")
+  model_config = parsed_body["config"]
+else
+  model_config = Dict()
+end
+
+try
+  output = model.applyJacobian(model_outWrt, model_inWrt, model_parameters, model_vec, model_config)
+catch e
+  return runtime_error(model, e, "the evaluation of jacobian", "Jacobian", "jacobian")
+end
+
+body = Dict("output" => output)
+return HTTP.Response(200, JSON.json(body))
+
         )
         return HTTP.Response(JSON.json(body))
     end
@@ -665,17 +760,51 @@ function applyHessianRequest(models::Vector)
         model_sens = parsed_body["sens"]
         model_vec = parsed_body["vec"]
         model_parameters = parsed_body["input"]
-        
-	
+
+    if length(model_parameters) != length(inputSizes(model))
+		body = Dict(
+			"error" => Dict(
+				"type" => "InvalidInput",
+				"message" => "Invalid input"
+			)
+		)
+		return HTTP.Response(400, JSON.json(body))
+
+	end
+	for i in eachindex(model_parameters)
+		if !isa(model_parameters[i], AbstractArray)
+			body = Dict(
+					"error" => Dict(
+							"type" => "InvalidInput",
+							"message" => "Input must be an array of arrays!"
+						)
+				)
+			return HTTP.Response(400, JSON.json(body))
+		end
+		if length(model_parameters[i]) != inputSizes(model)[i]
+			body = Dict(
+					"error" => Dict(
+							"type" => "InvalidInput",
+							"message" => "Input parameter $i has invalid length! Expected $(inputSizes(model)[i]) but got $(length(model_parameters[i])) instead!"
+						)
+				)
+			return HTTP.Response(400, JSON.json(body))
+		end
+	end
+
+	if haskey(parsed_body, "config")
+		model_config = parsed_body["config"]
+	else
+		model_config = Dict()
+	end
 	# Apply model's Hessian
-    try
-    	output = model.applyHessian(model_outWrt, model_inWrt1, model_inWrt2, model_parameters, model_sens, model_vec, model_config)
-    catch e
-            return runtime_error(model, e, "the evaluation of hessian", "Hessian", "hessian")
-        end
-	
+  try
+	  output = model.applyHessian(model_outWrt, model_inWrt1, model_inWrt2, model_parameters, model_sens, model_vec, model_config)
+  catch e
+    return runtime_error(model, e, "the evaluation of hessian", "Hessian", "hessian")
+  end
         body = Dict(
-		    "output" => [output]
+		    "output" => output
         )
         return HTTP.Response(JSON.json(body))
     end
