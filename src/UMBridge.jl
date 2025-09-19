@@ -407,22 +407,22 @@ function evaluateRequest(models::Vector)
 			# return runtime_error(model, e, "the evaluation of inputSizes", "InputSizes", "input size")
 		end         
 
-		for i in 1:length(model_parameters)
-			try
-				if length(model_parameters[i]) != model.inputSizes[i]
+		# for i in 1:length(model_parameters)
+		# 	try
+		# 		if length(model_parameters[i]) != model.inputSizes[i]
 
-					body = Dict(
-						    "error" => Dict(
-								    "type" => "InvalidInput",
-								    "message" => "Invalid input"
-								    )
-						    )
-					# return HTTP.Response(400,["Content-Type" => "application/json"], JSON.json(body))
-				end
-			catch e
-				# return runtime_error(model, e, "the evaluation of inputSizes", "InputSizes", "input size")
-			end         
-		end
+		# 			body = Dict(
+		# 				    "error" => Dict(
+		# 						    "type" => "InvalidInput",
+		# 						    "message" => "Invalid input"
+		# 						    )
+		# 				    )
+		# 			# return HTTP.Response(400,["Content-Type" => "application/json"], JSON.json(body))
+		# 		end
+		# 	catch e
+		# 		# return runtime_error(model, e, "the evaluation of inputSizes", "InputSizes", "input size")
+		# 	end         
+		# end
 		if !supportsEvaluate(model)
 
 			body = Dict(
@@ -485,26 +485,26 @@ function evaluateRequest(models::Vector)
 			# return runtime_error(model, e, "the evaluation of outputSizes", "OutputSizes", "output size")
 		end
 
-		for i in eachindex(output)
-			if !isa(output[i], AbstractArray)
-				body = Dict(
-					    "error" => Dict(
-							    "type" => "InvalidOutput",
-							    "message" => "Output must be an array of arrays!"
-							    )
-					    )
-				# return HTTP.Response(400, ["Content-Type" => "application/json"],JSON.json(body))
-			end
-			if length(output[i]) != model.outputSizes[i]
-				body = Dict(
-					    "error" => Dict(
-							    "type" => "InvalidOutput",
-							    "message" => "Output parameter $i has invalid length! Expected $(model.outputSizes[i]) but got $(length(output[i])) instead!"
-							    )
-					    )
-				# return HTTP.Response(400, ["Content-Type" => "application/json"],JSON.json(body))
-			end
-		end
+		# for i in eachindex(output)
+		# 	if !isa(output[i], AbstractArray)
+		# 		body = Dict(
+		# 			    "error" => Dict(
+		# 					    "type" => "InvalidOutput",
+		# 					    "message" => "Output must be an array of arrays!"
+		# 					    )
+		# 			    )
+		# 		# return HTTP.Response(400, ["Content-Type" => "application/json"],JSON.json(body))
+		# 	end
+		# 	if length(output[i]) != model.outputSizes[i]
+		# 		body = Dict(
+		# 			     "error" => Dict(
+		# 					    "type" => "InvalidOutput",
+		# 					    "message" => "Output parameter $i has invalid length! Expected $(model.outputSizes[i]) but got $(length(output[i])) instead!"
+		# 					    )
+		# 			    )
+		# 		return HTTP.Response(400, ["Content-Type" => "application/json"],JSON.json(body))
+		# 	end
+		# end
 		body = Dict(
 			    "output" => output
 			    )
