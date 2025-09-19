@@ -194,6 +194,10 @@ end
 end
 
 name(model::Model) = model.name
+inputSizes(model::Model, config::Dict) = get(config,"inputSizes",model.inputSizes)
+outputSizes(model::Model, config::Dict) = get(config,"outputSizes",model.outputSizes)
+inputSizes(model::Model) = model.inputSizes
+outputSizes(model::Model) = model.outputSizes
 
 supportsEvaluate(model::Model) = model.supportsEvaluate
 supportsGradient(model::Model) = model.supportsGradient
